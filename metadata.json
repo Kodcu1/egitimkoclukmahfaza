@@ -1,0 +1,8 @@
+{
+  "name": " MAHFAZA.CO EĞİTİM KOÇLUĞU",
+  "description": "YKS 2026 Eğitim Koçluğu ve Öğrenci Takip Platformu - Planını Kur. Disiplinini Kor. Hedefine Ulaş.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
