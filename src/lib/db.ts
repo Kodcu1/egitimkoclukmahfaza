@@ -536,10 +536,408 @@ class DatabaseEngine {
     }
   }
 
-  // --- CORE METHODS ---
-  // (Profiles, Coaches, Students, Goals, and Messaging are kept intact as in your original file)
-  // [Full code for getProfiles, updateProfiles, getStudents, etc. remains active]
-  
+  private uniqById<T extends { id?: string }>(items: T[]): T[] {
+    const seen = new Set<string>();
+    return items.filter((item) => {
+      if (!item || !item.id) return true;
+      if (seen.has(item.id)) return false;
+      seen.add(item.id);
+      return true;
+    });
+  }
+
+  private sortByCreatedAtDesc<T extends { created_at?: string }>(items: T[]): T[] {
+    return [...items].sort((a, b) => {
+      const aTime = a.created_at ? new Date(a.created_at).getTime() : 0;
+      const bTime = b.created_at ? new Date(b.created_at).getTime() : 0;
+      return bTime - aTime;
+    });
+  }
+
+  private sortByCreatedAtAsc<T extends { created_at?: string }>(items: T[]): T[] {
+    return [...items].sort((a, b) => {
+      const aTime = a.created_at ? new Date(a.created_at).getTime() : 0;
+      const bTime = b.created_at ? new Date(b.created_at).getTime() : 0;
+      return aTime - bTime;
+    });
+  }
+
+  getProfiles(): UserProfile[] {
+    return this.profiles.slice();
+  }
+
+  async getProfile(userIdOrEmail: string): Promise<UserProfile | null> {
+    return this.profiles.find((profile) => profile.user_id === userIdOrEmail || profile.id === userIdOrEmail) || null;
+  }
+
+  async getProfileByEmail(email: string): Promise<UserProfile | null> {
+    const normalized = email.trim().toLowerCase();
+    return this.profiles.find((profile) => profile.email.trim().toLowerCase() === normalized) || null;
+  }
+
+  createProfile(profile: UserProfile): UserProfile {
+    const normalizedEmail = profile.email.trim().toLowerCase();
+    const existingIndex = this.profiles.findIndex((item) => item.user_id === profile.user_id || item.id === profile.id || item.email.trim().toLowerCase() === normalizedEmail);
+    if (existingIndex >= 0) {
+      this.profiles[existingIndex] = { ...this.profiles[existingIndex], ...profile };
+    } else {
+      this.profiles.unshift(profile);
+    }
+    this.persist('profiles');
+    return this.profiles[existingIndex >= 0 ? existingIndex : 0];
+  }
+
+  getStudents(coachId?: string): Student[] {
+    const allStudents = this.deduplicateStudents(this.students.slice());
+    if (!coachId) return this.sortByCreatedAtDesc(allStudents);
+
+    const normalizedCoachId = coachId.trim();
+    const ownStudents = allStudents.filter((student) => {
+      const coach = (student.coach_id || '').trim();
+      return coach === normalizedCoachId || student.user_id === normalizedCoachId || student.id === normalizedCoachId;
+    });
+    return this.sortByCreatedAtDesc(ownStudents);
+  }
+
+  async getStudentById(studentId: string): Promise<Student | null> {
+    return this.students.find((student) => student.id === studentId || student.user_id === studentId || student.email.trim().toLowerCase() === studentId.trim().toLowerCase()) || null;
+  }
+
+  getUnassignedStudents(): Student[] {
+    return this.deduplicateStudents(
+      this.students.filter((student) => !((student.coach_id || '').trim()))
+    );
+  }
+
+  async addStudent(student: Partial<Student> & { user_id: string; name: string; email: string }): Promise<Student> {
+    const now = new Date().toISOString();
+    const studentId = student.id || student.user_id || `stu_${Math.random().toString(36).substring(2, 9)}`;
+    const incoming: Student = {
+      id: studentId,
+      user_id: student.user_id,
+      coach_id: student.coach_id ?? null,
+      pending_coach_id: student.pending_coach_id ?? null,
+      pending_coach_name: student.pending_coach_name ?? null,
+      parent_id: student.parent_id,
+      name: student.name,
+      email: student.email,
+      phoneNumber: student.phoneNumber ?? student.phone,
+      phone: student.phone ?? student.phoneNumber,
+      avatar_url: student.avatar_url,
+      target_exam: student.target_exam ?? 'YKS',
+      grade: student.grade ?? '12. Sınıf',
+      field: student.field ?? 'SAY',
+      match_code: student.match_code ?? `STU-${Math.random().toString(36).substring(2, 8).toUpperCase()}`,
+      target_university: student.target_university ?? 'Hedef Belirlenmedi',
+      target_department: student.target_department ?? 'Hedef Belirlenmedi',
+      target_rank: student.target_rank ?? 5000,
+      target_score: student.target_score ?? 450,
+      xp: student.xp ?? 0,
+      total_xp: student.total_xp ?? student.xp ?? 0,
+      spendable_xp: student.spendable_xp ?? student.xp ?? 0,
+      level: student.level ?? 1,
+      streak: student.streak ?? student.streak_days ?? 0,
+      streak_days: student.streak_days ?? student.streak ?? 0,
+      risk_score: student.risk_score ?? 0,
+      risk_level: student.risk_level ?? 'LOW',
+      risk_reasons: student.risk_reasons ?? [],
+      coach_notes: student.coach_notes,
+      is_verified: student.is_verified ?? true,
+      created_at: student.created_at ?? now,
+      updated_at: student.updated_at ?? now,
+    };
+
+    const existingIndex = this.students.findIndex((item) => item.id === studentId || item.user_id === incoming.user_id || item.email.trim().toLowerCase() === incoming.email.trim().toLowerCase());
+    if (existingIndex >= 0) {
+      this.students[existingIndex] = { ...this.students[existingIndex], ...incoming };
+    } else {
+      this.students.unshift(incoming);
+    }
+    this.persist('students');
+    if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('students_updated'));
+    return incoming;
+  }
+
+  async deleteStudent(studentId: string): Promise<void> {
+    this.students = this.students.filter((student) => student.id !== studentId && student.user_id !== studentId);
+    this.goals = this.goals.filter((goal) => goal.student_id !== studentId);
+    this.exams = this.exams.filter((exam) => exam.student_id !== studentId);
+    this.studyLogs = this.studyLogs.filter((log) => log.student_id !== studentId);
+    this.tasks = this.tasks.filter((task) => task.student_id !== studentId);
+    this.rewardRequests = this.rewardRequests.filter((request) => request.student_id !== studentId);
+    this.xpApprovals = this.xpApprovals.filter((approval) => approval.student_id !== studentId);
+    this.xpTransactions = this.xpTransactions.filter((tx) => tx.student_id !== studentId);
+    this.messages = this.messages.filter((message) => message.sender_id !== studentId && message.receiver_id !== studentId);
+    this.notifications = this.notifications.filter((notification) => notification.user_id !== studentId);
+    this.persist('students');
+    this.persist('goals');
+    this.persist('exams');
+    this.persist('studyLogs');
+    this.persist('tasks');
+    this.persist('rewardRequests');
+    this.persist('xpApprovals');
+    this.persist('xpTransactions');
+    this.persist('messages');
+    this.persist('notifications');
+  }
+
+  async deleteStudents(studentIds: string[]): Promise<void> {
+    const idSet = new Set(studentIds);
+    this.students = this.students.filter((student) => !idSet.has(student.id) && !idSet.has(student.user_id));
+    this.goals = this.goals.filter((goal) => !idSet.has(goal.student_id));
+    this.exams = this.exams.filter((exam) => !idSet.has(exam.student_id));
+    this.studyLogs = this.studyLogs.filter((log) => !idSet.has(log.student_id));
+    this.tasks = this.tasks.filter((task) => !idSet.has(task.student_id));
+    this.rewardRequests = this.rewardRequests.filter((request) => !idSet.has(request.student_id));
+    this.xpApprovals = this.xpApprovals.filter((approval) => !idSet.has(approval.student_id));
+    this.xpTransactions = this.xpTransactions.filter((tx) => !idSet.has(tx.student_id));
+    this.messages = this.messages.filter((message) => !idSet.has(message.sender_id) && !idSet.has(message.receiver_id));
+    this.notifications = this.notifications.filter((notification) => !idSet.has(notification.user_id));
+    this.persist('students');
+    this.persist('messages');
+    this.persist('notifications');
+  }
+
+  getUnreadMessagesCount(userId: string): number {
+    return this.messages.filter((message) => message.receiver_id === userId && !message.is_read).length;
+  }
+
+  getMessages(currentUserId: string, partnerId: string): ChatMessage[] {
+    const filtered = this.messages.filter((message) => {
+      const a = message.sender_id === currentUserId && message.receiver_id === partnerId;
+      const b = message.sender_id === partnerId && message.receiver_id === currentUserId;
+      return a || b;
+    });
+    return this.sortByCreatedAtAsc(this.uniqById(filtered));
+  }
+
+  async sendMessage(message: {
+    sender_id: string;
+    receiver_id: string;
+    sender_name: string;
+    sender_role: 'coach' | 'student' | 'parent' | 'admin';
+    receiver_role?: 'coach' | 'student' | 'parent' | 'admin';
+    content: string;
+    attachment_url?: string;
+    attachment_name?: string;
+  }): Promise<ChatMessage> {
+    const id = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `msg_${Math.random().toString(36).substring(2, 9)}`;
+    const now = new Date().toISOString();
+    const newMessage: ChatMessage = {
+      id,
+      sender_id: message.sender_id,
+      receiver_id: message.receiver_id,
+      sender_name: message.sender_name,
+      sender_role: message.sender_role,
+      receiver_role: message.receiver_role,
+      content: message.content.trim(),
+      is_read: false,
+      created_at: now,
+      attachment_url: message.attachment_url,
+      attachment_name: message.attachment_name,
+    };
+
+    const duplicate = this.messages.some((existing) => {
+      if (existing.id === newMessage.id) return true;
+      const samePair = existing.sender_id === newMessage.sender_id && existing.receiver_id === newMessage.receiver_id;
+      const sameContent = existing.content === newMessage.content;
+      const withinWindow = Math.abs(new Date(existing.created_at).getTime() - new Date(newMessage.created_at).getTime()) < 2000;
+      return samePair && sameContent && withinWindow;
+    });
+
+    if (!duplicate) {
+      this.messages.push(newMessage);
+      this.messages = this.uniqById(this.messages);
+      this.persist('messages');
+    }
+
+    if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('messages_updated'));
+    return newMessage;
+  }
+
+  async markMessagesAsRead(fromUserId: string, toUserId: string): Promise<number> {
+    let updated = 0;
+    this.messages = this.messages.map((message) => {
+      const shouldMarkRead = message.sender_id === fromUserId && message.receiver_id === toUserId && !message.is_read;
+      if (shouldMarkRead) {
+        updated += 1;
+        return { ...message, is_read: true };
+      }
+      return message;
+    });
+    if (updated > 0) this.persist('messages');
+    return updated;
+  }
+
+  async getConversations(currentUserId: string, role?: string): Promise<ChatConversation[]> {
+    const partnerIds = new Set<string>();
+    this.messages.forEach((message) => {
+      if (message.sender_id === currentUserId) partnerIds.add(message.receiver_id);
+      if (message.receiver_id === currentUserId) partnerIds.add(message.sender_id);
+    });
+
+    this.students.forEach((student) => {
+      if (student.coach_id === currentUserId || student.parent_id === currentUserId || student.user_id === currentUserId || student.id === currentUserId) {
+        if (student.user_id && student.user_id !== currentUserId) partnerIds.add(student.user_id);
+        if (student.id && student.id !== currentUserId) partnerIds.add(student.id);
+      }
+    });
+
+    const profileMap = new Map<string, UserProfile>();
+    this.profiles.forEach((profile) => profileMap.set(profile.user_id || profile.id, profile));
+
+    const conversations = [...partnerIds]
+      .filter((partnerId) => partnerId && partnerId !== currentUserId)
+      .map((partnerId) => {
+        const partnerProfile = profileMap.get(partnerId);
+        const studentRecord = this.students.find((student) => student.user_id === partnerId || student.id === partnerId);
+        const partnerName = partnerProfile?.name || studentRecord?.name || 'Kullanıcı';
+        const partnerRole = partnerProfile?.role || (studentRecord ? 'student' : 'coach');
+        const partnerMessages = this.getMessages(currentUserId, partnerId);
+        const lastMessage = partnerMessages[partnerMessages.length - 1] || undefined;
+        const unread_count = this.messages.filter((message) => message.sender_id === partnerId && message.receiver_id === currentUserId && !message.is_read).length;
+        return {
+          partner_id: partnerId,
+          partner_name: partnerName,
+          partner_avatar: partnerProfile?.avatar_url || studentRecord?.avatar_url,
+          partner_role: partnerRole as ChatConversation['partner_role'],
+          partner_field: partnerProfile?.target_exam || studentRecord?.target_exam,
+          last_message: lastMessage,
+          unread_count,
+        } satisfies ChatConversation;
+      })
+      .sort((a, b) => {
+        const aTime = a.last_message?.created_at ? new Date(a.last_message.created_at).getTime() : 0;
+        const bTime = b.last_message?.created_at ? new Date(b.last_message.created_at).getTime() : 0;
+        return bTime - aTime;
+      });
+
+    return conversations;
+  }
+
+  async deleteMessage(messageId: string): Promise<void> {
+    this.messages = this.messages.filter((message) => message.id !== messageId);
+    this.persist('messages');
+  }
+
+  async clearConversation(currentUserId: string, partnerId: string): Promise<void> {
+    this.messages = this.messages.filter((message) => !((message.sender_id === currentUserId && message.receiver_id === partnerId) || (message.sender_id === partnerId && message.receiver_id === currentUserId)));
+    this.persist('messages');
+  }
+
+  createNotification(notification: Omit<AppNotification, 'id' | 'is_read' | 'created_at'> & { id?: string; is_read?: boolean; created_at?: string }): AppNotification {
+    const now = new Date().toISOString();
+    const newNotification: AppNotification = {
+      id: notification.id || `notif_${Math.random().toString(36).substring(2, 9)}`,
+      user_id: notification.user_id,
+      title: notification.title,
+      message: notification.message,
+      type: notification.type,
+      is_read: Boolean(notification.is_read),
+      link: notification.link,
+      created_at: notification.created_at || now,
+    };
+
+    const merged = this.uniqById([newNotification, ...this.notifications]);
+    this.notifications = merged.filter((item) => item.user_id === newNotification.user_id || item.id === newNotification.id || item.created_at !== newNotification.created_at || item.title !== newNotification.title || item.message !== newNotification.message);
+    this.notifications = this.uniqById([newNotification, ...this.notifications]);
+    this.persist('notifications');
+    if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('notifications_updated'));
+    return newNotification;
+  }
+
+  getNotifications(userId: string): AppNotification[] {
+    return this.sortByCreatedAtDesc(this.notifications.filter((notification) => notification.user_id === userId));
+  }
+
+  async markNotificationRead(notificationId: string): Promise<boolean> {
+    let changed = false;
+    this.notifications = this.notifications.map((notification) => {
+      if (notification.id === notificationId && !notification.is_read) {
+        changed = true;
+        return { ...notification, is_read: true };
+      }
+      return notification;
+    });
+    if (changed) this.persist('notifications');
+    return changed;
+  }
+
+  async markAllNotificationsRead(userId: string): Promise<void> {
+    this.notifications = this.notifications.map((notification) => notification.user_id === userId ? { ...notification, is_read: true } : notification);
+    this.persist('notifications');
+  }
+
+  getXpApprovals(coachId?: string): XpApprovalRequest[] {
+    let approvals = this.xpApprovals.slice();
+    if (coachId) {
+      const normalizedCoachId = coachId.trim();
+      approvals = approvals.filter((approval) => approval.coach_id === normalizedCoachId || approval.coach_id === undefined || approval.coach_id === DEMO_COACH_ID || approval.coach_id === SYSTEM_FOUNDER_ID);
+    }
+    return this.sortByCreatedAtDesc(approvals);
+  }
+
+  getPendingXpApprovalsCount(coachId?: string): number {
+    return this.getXpApprovals(coachId).filter((approval) => approval.status === 'pending').length;
+  }
+
+  async processXpApproval(approvalId: string, status: ApprovalStatus, coachNotes?: string): Promise<XpApprovalRequest> {
+    const index = this.xpApprovals.findIndex((approval) => approval.id === approvalId);
+    if (index < 0) throw new Error('XP onay talebi bulunamadı.');
+
+    const existing = this.xpApprovals[index];
+    if (existing.status === status) return existing;
+
+    const updated: XpApprovalRequest = {
+      ...existing,
+      status,
+      coach_notes: coachNotes || existing.coach_notes,
+      processed_at: new Date().toISOString(),
+    };
+
+    this.xpApprovals[index] = updated;
+    this.persist('xpApprovals');
+
+    if (status === 'approved') {
+      const student = await this.getStudentById(existing.student_id);
+      if (student) {
+        const total = (student.total_xp ?? student.xp ?? 0) + existing.calculated_xp;
+        const spendable = (student.spendable_xp ?? student.xp ?? 0) + existing.calculated_xp;
+        student.total_xp = total;
+        student.spendable_xp = spendable;
+        student.xp = total;
+        student.level = calculateLevel(total);
+        student.updated_at = new Date().toISOString();
+        this.xpTransactions.unshift({
+          id: `xp_${Math.random().toString(36).substring(2, 9)}`,
+          student_id: student.id,
+          amount: existing.calculated_xp,
+          reason: `Koç onayı: ${existing.title}`,
+          source_type: 'study_log',
+          source_id: existing.activity_id,
+          action_id: `approval_${existing.id}`,
+          created_at: new Date().toISOString(),
+        });
+        this.persist('students');
+        this.persist('xpTransactions');
+      }
+    }
+
+    if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('approvals_updated'));
+    return updated;
+  }
+
+  async batchProcessXpApprovals(approvalIds: string[], status: ApprovalStatus): Promise<void> {
+    for (const approvalId of approvalIds) {
+      await this.processXpApproval(approvalId, status, status === 'approved' ? 'Toplu onaylandı.' : 'Toplu reddedildi.');
+    }
+  }
+
+  async deleteXpApproval(approvalId: string): Promise<void> {
+    this.xpApprovals = this.xpApprovals.filter((approval) => approval.id !== approvalId);
+    this.persist('xpApprovals');
+  }
+
   async addStudyLog(log: Omit<StudyLog, 'id' | 'created_at'>): Promise<StudyLog> {
     const id = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : 'log_' + Math.random().toString(36).substring(2, 9);
     const newLog: StudyLog = {
