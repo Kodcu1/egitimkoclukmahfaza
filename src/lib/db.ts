@@ -268,7 +268,6 @@ class DatabaseEngine {
     this.parentMeetings = getStorageItem<ParentMeeting[]>('parentMeetings', []);
 
     this.cleanDemoArtifacts();
-    this.auditAllStudents();
 
     if (typeof window !== 'undefined') {
       this.syncWithServer().then(() => {
@@ -575,6 +574,37 @@ class DatabaseEngine {
     return this.profiles.find((profile) => profile.email.trim().toLowerCase() === normalized) || null;
   }
 
+  async verifyUserEmail(email: string): Promise<void> {
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!normalizedEmail) return;
+
+    const verifiedAt = new Date().toISOString();
+    let profileFound = false;
+    this.profiles.forEach((profile) => {
+      if (profile.email.trim().toLowerCase() !== normalizedEmail) return;
+      if (profile.is_verified !== true || !profile.email_confirmed_at) profile.updated_at = verifiedAt;
+      profile.is_verified = true;
+      profile.email_confirmed_at = profile.email_confirmed_at || verifiedAt;
+      profileFound = true;
+    });
+
+    let studentFound = false;
+    this.students.forEach((student) => {
+      if (student.email.trim().toLowerCase() !== normalizedEmail) return;
+      if (student.is_verified !== true) student.updated_at = verifiedAt;
+      student.is_verified = true;
+      studentFound = true;
+    });
+
+    if (profileFound) this.persist('profiles');
+    if (studentFound) this.persist('students');
+
+    if (typeof window !== 'undefined') {
+      if (profileFound) window.dispatchEvent(new CustomEvent('profiles_updated'));
+      if (studentFound) window.dispatchEvent(new CustomEvent('students_updated'));
+    }
+  }
+
   createProfile(profile: UserProfile): UserProfile {
     const normalizedEmail = profile.email.trim().toLowerCase();
     const existingIndex = this.profiles.findIndex((item) => item.user_id === profile.user_id || item.id === profile.id || item.email.trim().toLowerCase() === normalizedEmail);
@@ -601,6 +631,30 @@ class DatabaseEngine {
 
   async getStudentById(studentId: string): Promise<Student | null> {
     return this.students.find((student) => student.id === studentId || student.user_id === studentId || student.email.trim().toLowerCase() === studentId.trim().toLowerCase()) || null;
+  }
+
+  auditStudent(studentId: string): Student | null {
+    const student = this.students.find((item) => item.id === studentId || item.user_id === studentId);
+    if (!student) return null;
+
+    const studentIds = new Set([student.id, student.user_id]);
+    const logs = this.studyLogs.filter((log) => studentIds.has(log.student_id));
+    const exams = this.exams.filter((exam) => studentIds.has(exam.student_id));
+    const tasks = this.tasks.filter((task) =>
+      studentIds.has(task.student_id) || (task.student_user_id ? studentIds.has(task.student_user_id) : false)
+    );
+    const risk = calculateRisk(student, logs, exams, tasks, calculateStreak(logs.map((log) => log.study_date)));
+
+    student.risk_score = risk.riskScore;
+    student.risk_level = risk.riskLevel;
+    student.risk_reasons = risk.reasons;
+    this.persist('students');
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('students_updated'));
+    }
+
+    return student;
   }
 
   getUnassignedStudents(): Student[] {
