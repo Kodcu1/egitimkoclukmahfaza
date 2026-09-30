@@ -1,4 +1,4 @@
-import { UserProfile, UserRole } from '../types';
+import { StudentField, StudentGrade, TargetExamGroup, UserProfile, UserRole } from '../types';
 import { db } from '../lib/db';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { getAuthRedirectUrl } from '../lib/authUrls';
@@ -13,6 +13,13 @@ export interface RegisterParams {
   matchCode?: string;      // required for parent
   phone?: string;
   phoneNumber?: string;
+  targetExam?: TargetExamGroup;
+  grade?: StudentGrade;
+  field?: StudentField;
+  targetUniversity?: string;
+  targetDepartment?: string;
+  targetRank?: number;
+  targetScore?: number;
 }
 
 export const INSTITUTION_KEY = 'mahfaza';
@@ -109,7 +116,13 @@ export class AuthService {
         }
 
         const authUserId = data.user.id;
-        let profile = (await db.getProfile(authUserId)) || (await db.getProfileByEmail(cleanEmail));
+        const { data: authProfile, error: profileError } = await supabase
+          .from('profiles')
+          .select('id,user_id,email,name,role,avatar_url,phone,username,two_factor_enabled,created_at,updated_at')
+          .eq('user_id', authUserId)
+          .maybeSingle();
+        if (profileError) throw new Error(profileError.message);
+        const profile = authProfile as UserProfile | null;
 
         if (profile && (profile.name?.includes('[DELETED DEMO]') || (profile.status as string) === 'disabled')) {
           await supabase.auth.signOut();
@@ -117,35 +130,12 @@ export class AuthService {
         }
 
         if (!profile) {
-          // Create profile with real Supabase Auth UUID
-          const metaRole = data.user.user_metadata?.role || (isFounder ? 'head_coach' : 'student');
-          const metaName = data.user.user_metadata?.name || (isFounder ? 'Serkan KOÇAK' : cleanEmail.split('@')[0]);
-          profile = {
-            id: authUserId,
-            user_id: authUserId,
-            email: cleanEmail,
-            name: metaName,
-            role: metaRole,
-            is_verified: true,
-            is_founder: isFounder || cleanEmail === 'mahfaza.co@gmail.com',
-            status: 'active',
-            created_at: data.user.created_at || new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          };
-          await db.createProfile(profile);
-        } else {
-          // Guarantee profile uses real Supabase Auth UUID
-          profile.id = authUserId;
-          profile.user_id = authUserId;
-          if (data.user.email_confirmed_at) {
-            profile.is_verified = true;
-            profile.email_confirmed_at = data.user.email_confirmed_at;
-          }
-          await db.updateProfile(authUserId, {
-            user_id: authUserId,
-            is_verified: profile.is_verified,
-          });
+          throw new Error('Doğrulanmış kullanıcı profili bulunamadı. Lütfen destek ekibiyle iletişime geçin.');
         }
+        profile.is_verified = Boolean(data.user.email_confirmed_at);
+        profile.email_confirmed_at = data.user.email_confirmed_at || null;
+        await db.createProfile(profile);
+        if (data.user.email_confirmed_at) await db.verifyUserEmail(cleanEmail);
         return profile;
       }
 
@@ -195,35 +185,30 @@ export class AuthService {
 
     // 3. Create profile defaults
     let newUserId = 'user_' + Math.random().toString(36).substring(2, 9);
+    let authEmailConfirmedAt: string | null = null;
     const phoneVal = params.phoneNumber || params.phone;
     const isFounder = cleanEmail === 'serkankocak551@gmail.com';
     const isSpecialBypass = isBypassedEmail(cleanEmail);
 
     // 4. If Supabase is live, sign up with Supabase Auth + real confirmation redirect
     if (isSupabaseConfigured && supabase) {
-      try {
-        const callbackUrl = getAuthRedirectUrl('/auth/callback');
-        const { data: authData, error: authError } = await supabase.auth.signUp({
-          email: cleanEmail,
-          password: params.password || 'Seko1200.',
-          options: {
-            data: {
-              name: params.name.trim(),
-              role: assignedRole,
-              phone: phoneVal,
-            },
-            emailRedirectTo: callbackUrl,
+      const callbackUrl = getAuthRedirectUrl('/auth/callback');
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: cleanEmail,
+        password: params.password,
+        options: {
+          data: {
+            name: params.name.trim(),
+            role: assignedRole,
+            phone: phoneVal,
           },
-        });
-
-        if (authError) {
-          console.warn('Supabase auth signUp notice:', authError.message);
-        } else if (authData.user?.id) {
-          newUserId = authData.user.id;
-        }
-      } catch (err) {
-        console.warn('Supabase signUp error handled:', err);
-      }
+          emailRedirectTo: callbackUrl,
+        },
+      });
+      if (authError) throw new Error(authError.message);
+      if (!authData.user?.id) throw new Error('Supabase kullanıcı hesabını oluşturamadı.');
+      newUserId = authData.user.id;
+      authEmailConfirmedAt = authData.user.email_confirmed_at || null;
     }
 
     // Generate or sanitize username
@@ -241,7 +226,8 @@ export class AuthService {
       pending_coach_id: null,
       pending_coach_name: null,
       phone: phoneVal,
-      is_verified: isFounder || isSpecialBypass ? true : false,
+      is_verified: isSupabaseConfigured ? Boolean(authEmailConfirmedAt) : isFounder || isSpecialBypass,
+      email_confirmed_at: authEmailConfirmedAt,
       is_founder: isFounder || cleanEmail === 'mahfaza.co@gmail.com',
       status: 'active',
       created_at: new Date().toISOString(),
@@ -261,12 +247,13 @@ export class AuthService {
         email: cleanEmail,
         phoneNumber: phoneVal,
         phone: phoneVal,
-        grade: '12. Sınıf',
-        field: 'SAY',
-        target_university: 'Hedef Belirlenmedi',
-        target_department: 'Hedef Belirlenmedi',
-        target_rank: 5000,
-        target_score: 450,
+        target_exam: params.targetExam || 'YKS',
+        grade: params.grade || '12. Sınıf',
+        field: params.field || 'SAY',
+        target_university: params.targetUniversity || 'Hedef Belirlenmedi',
+        target_department: params.targetDepartment || 'Hedef Belirlenmedi',
+        target_rank: params.targetRank ?? 5000,
+        target_score: params.targetScore ?? 450,
       });
     }
 

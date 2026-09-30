@@ -628,8 +628,16 @@ app.post('/api/auth/demo-login', async (req, res) => {
   }
 });
 
+const legacyDbSyncEnabled =
+  process.env.NODE_ENV !== 'production' && process.env.MAHFAZA_ALLOW_LEGACY_DB_SYNC === 'true';
+
+// Legacy collection sync is unauthenticated and must remain disabled by default.
+// Production data access must go through Supabase RLS-backed operations.
 // 1. GET /api/db/sync - Retrieve live multi-device state
 app.get('/api/db/sync', (req, res) => {
+  if (!legacyDbSyncEnabled) {
+    return res.status(410).json({ error: 'Legacy database sync is disabled.' });
+  }
   res.json({
     success: true,
     data: serverDB,
@@ -639,6 +647,9 @@ app.get('/api/db/sync', (req, res) => {
 
 // 2. POST /api/db/sync - Merge client updates into centralized server state
 app.post('/api/db/sync', (req, res) => {
+  if (!legacyDbSyncEnabled) {
+    return res.status(410).json({ error: 'Legacy database sync is disabled.' });
+  }
   const updates = req.body;
   if (!updates || typeof updates !== 'object') {
     return res.status(400).json({ error: 'Invalid payload' });
@@ -1882,7 +1893,7 @@ app.post('/api/auth/resend-verification', authRateLimiter, (req, res) => {
 });
 
 // POST /api/auth/verify-email
-app.post('/api/auth/verify-email', authRateLimiter, (req, res) => {
+app.post('/api/auth/verify-email', authRateLimiter, async (req, res) => {
   const { email, code } = req.body;
   if (!email) {
     return res.status(400).json({ error: 'Email is required' });
@@ -1894,6 +1905,29 @@ app.post('/api/auth/verify-email', authRateLimiter, (req, res) => {
   // Strict check: OTP code is mandatory for direct verification
   if (!cleanCode) {
     return res.status(400).json({ error: 'Doğrulama kodu zorunludur.', message: 'Lütfen 6 haneli doğrulama kodunu giriniz.' });
+  }
+
+  let verifiedBySupabase = false;
+  try {
+    const verificationClient = createClient(SUPABASE_URL, SUPABASE_KEY, {
+      auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false },
+    });
+    for (const type of ['signup', 'email'] as const) {
+      const { data, error } = await verificationClient.auth.verifyOtp({
+        email: cleanEmail,
+        token: cleanCode,
+        type,
+      });
+      if (!error && data.user?.email?.trim().toLowerCase() === cleanEmail) {
+        verifiedBySupabase = true;
+        break;
+      }
+    }
+  } catch {
+    return res.status(502).json({ error: 'E-posta doğrulaması şu anda tamamlanamıyor.' });
+  }
+  if (!verifiedBySupabase) {
+    return res.status(400).json({ error: 'Geçersiz veya süresi dolmuş doğrulama kodu.' });
   }
 
   const now = new Date().toISOString();

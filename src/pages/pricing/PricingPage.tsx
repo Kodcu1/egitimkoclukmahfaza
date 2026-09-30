@@ -108,7 +108,7 @@ export const PricingPage: React.FC = () => {
             </Link>
             <Link
               to="/register"
-              className="px-4 py-2 text-xs sm:text-sm font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-xl transition-all shadow-xs"
+              className="px-4 py-2 text-xs sm:text-sm font-bold bg-amber-600 hover:bg-amber-700 text-slate-950 rounded-xl transition-all shadow-xs"
             >
               Ücretsiz Başla
             </Link>
@@ -120,8 +120,8 @@ export const PricingPage: React.FC = () => {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-20">
         {/* Header Block */}
         <div className="text-center max-w-3xl mx-auto space-y-4">
-          <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-blue-50 border border-blue-200/80 text-blue-950 text-[11px] font-bold uppercase tracking-wider shadow-xs">
-            <Sparkles className="w-3.5 h-3.5 text-blue-600" />
+          <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-amber-50 border border-amber-200/80 text-amber-950 text-[11px] font-bold uppercase tracking-wider shadow-xs">
+            <Sparkles className="w-3.5 h-3.5 text-amber-600" />
             <span>ŞEFFAF VE MODÜLER FİYATLANDIRMA</span>
           </div>
 
@@ -130,7 +130,7 @@ export const PricingPage: React.FC = () => {
           </h1>
 
           <p className="text-slate-600 text-sm sm:text-base leading-relaxed">
-            Her ay birebir özel ders hediyeli, yapay zekâ analizli ve pedagojik koçluk destekli hazırlık ekosistemi.
+            Çalışma takibi, koçluk araçları ve YKS, LGS, KPSS hazırlığı için paket seçenekleri.
           </p>
 
           {/* Monthly / Yearly Toggle */}
@@ -150,13 +150,13 @@ export const PricingPage: React.FC = () => {
                 onClick={() => handleCycleChange('yearly')}
                 className={`px-5 py-2 text-xs sm:text-sm font-bold rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
                   billingCycle === 'yearly'
-                    ? 'bg-blue-600 text-white shadow-xs'
+                    ? 'bg-amber-600 text-slate-950 shadow-xs'
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
                 <span>Yıllık Ödeme</span>
                 <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-black uppercase ${
-                  billingCycle === 'yearly' ? 'bg-amber-300 text-blue-950' : 'bg-blue-600 text-white'
+                  billingCycle === 'yearly' ? 'bg-amber-300 text-amber-950' : 'bg-amber-600 text-slate-950'
                 }`}>
                   %25+ Tasarruf
                 </span>
@@ -174,13 +174,13 @@ export const PricingPage: React.FC = () => {
                   value={discountCode}
                   onChange={(e) => setDiscountCode(e.target.value.toUpperCase())}
                   placeholder="İndirim Kodu (Örn: SERKAN2027)"
-                  className="w-full pl-10 pr-3 py-2 rounded-xl bg-white border border-slate-300 text-slate-900 text-xs sm:text-sm font-bold uppercase placeholder:normal-case placeholder:text-slate-400 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20"
+                  className="w-full pl-10 pr-3 py-2 rounded-xl bg-white border border-slate-300 text-slate-900 text-xs sm:text-sm font-bold uppercase placeholder:normal-case placeholder:text-slate-400 focus:outline-none focus:border-amber-600 focus:ring-2 focus:ring-amber-600/20"
                 />
               </div>
               <button
                 type="submit"
                 disabled={isApplying}
-                className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-bold transition-all disabled:opacity-50 shadow-xs cursor-pointer"
+                className="px-5 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-slate-950 text-xs sm:text-sm font-bold transition-all disabled:opacity-50 shadow-xs cursor-pointer"
               >
                 {isApplying ? '...' : 'Uygula'}
               </button>
@@ -213,13 +213,13 @@ export const PricingPage: React.FC = () => {
                 key={plan.id}
                 className={`p-6 sm:p-7 rounded-2xl flex flex-col justify-between transition-all relative ${
                   plan.is_featured
-                    ? 'bg-gradient-to-b from-blue-50/20 via-white to-white border-2 border-blue-600 ring-4 ring-blue-500/10 shadow-lg scale-102 z-10'
-                    : 'bg-white border border-slate-200/90 hover:border-blue-200 hover:shadow-sm'
+                    ? 'bg-gradient-to-b from-amber-50/30 via-white to-white border-2 border-amber-600 ring-4 ring-amber-500/10 shadow-lg scale-102 z-10'
+                    : 'bg-white border border-slate-200/90 hover:border-amber-200 hover:shadow-sm'
                 }`}
               >
                 {plan.is_featured && (
                   <div className="absolute -top-3.5 left-1/2 -translate-x-1/2">
-                    <span className="px-3.5 py-1 rounded-full bg-blue-600 text-white text-[10px] font-mono font-bold tracking-wider uppercase shadow-xs flex items-center gap-1">
+                    <span className="px-3.5 py-1 rounded-full bg-amber-600 text-slate-950 text-[10px] font-mono font-bold tracking-wider uppercase shadow-xs flex items-center gap-1">
                       <Star className="w-3 h-3 fill-amber-300 text-amber-300" /> En Çok Tercih Edilen
                     </span>
                   </div>
@@ -282,7 +282,7 @@ export const PricingPage: React.FC = () => {
 
                   {/* Feature Checklist */}
                   <div className="space-y-3">
-                    <p className="text-[11px] font-mono font-bold uppercase tracking-wider text-blue-950">
+                    <p className="text-[11px] font-mono font-bold uppercase tracking-wider text-amber-950">
                       Paket Kapsamı:
                     </p>
                     <ul className="space-y-2 text-xs text-slate-700">
@@ -308,7 +308,7 @@ export const PricingPage: React.FC = () => {
                     }
                     className={`w-full py-2.5 px-4 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
                       plan.is_featured
-                        ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-xs hover:shadow-md'
+                        ? 'bg-amber-600 hover:bg-amber-700 text-slate-950 shadow-xs hover:shadow-md'
                         : 'bg-slate-100 hover:bg-slate-200 text-slate-800'
                     }`}
                   >
@@ -347,27 +347,27 @@ export const PricingPage: React.FC = () => {
           <div className="flex items-start gap-3">
             <ShieldCheck className="w-5 h-5 text-slate-900 shrink-0 mt-0.5" />
             <div>
-              <h4 className="text-xs font-bold text-slate-900">14 Gün İade Güvencesi</h4>
+              <h4 className="text-xs font-bold text-slate-900">Ücretsiz başlangıç</h4>
               <p className="text-xs text-slate-600 mt-0.5">
-                Memnun kalmazsanız ilk 14 gün içinde koşulsuz tam iade hakkı.
+                Ücretsiz plan için kayıt açabilirsiniz.
               </p>
             </div>
           </div>
           <div className="flex items-start gap-3">
             <Lock className="w-5 h-5 text-slate-900 shrink-0 mt-0.5" />
             <div>
-              <h4 className="text-xs font-bold text-slate-900">256-Bit SSL Güvenli Ödeme</h4>
+              <h4 className="text-xs font-bold text-slate-900">Güvenli hesap girişi</h4>
               <p className="text-xs text-slate-600 mt-0.5">
-                Tüm işlemler uluslararası bankacılık güvenlik standartlarıyla korunur.
+                Oturum doğrulaması mevcut Supabase Auth akışı üzerinden yapılır.
               </p>
             </div>
           </div>
           <div className="flex items-start gap-3">
             <Headphones className="w-5 h-5 text-slate-900 shrink-0 mt-0.5" />
             <div>
-              <h4 className="text-xs font-bold text-slate-900">Öncelikli Destek</h4>
+              <h4 className="text-xs font-bold text-slate-900">Ücretli paket aktivasyonu kapalı</h4>
               <p className="text-xs text-slate-600 mt-0.5">
-                Teknik ve pedagojik sorularınız için doğrudan uzman koç desteği.
+                Gerçek ödeme sağlayıcısı bağlanana kadar ücretli planlar etkinleştirilmez.
               </p>
             </div>
           </div>
@@ -388,15 +388,15 @@ export const PricingPage: React.FC = () => {
             {[
               {
                 q: 'Özel ders hediyeleri nasıl işliyor?',
-                a: 'Pro paketinde her ay 1 adet (60 dk), Premium paketinde ise her ay 2 adet (60 dk) birebir canlı özel ders hediyesi tanımlanır. İstediğiniz ders ve konuyu seçerek dilediğiniz gün ve saatte uzman branş öğretmeninizle canlı seansınızı yapabilirsiniz.',
+                a: 'Pro ve Premium paketlerinde özel ders kapsamı plan özelliklerinde listelenir. Gerçek ödeme ve entitlement akışı bağlanana kadar bu ücretli haklar etkinleştirilmez.',
               },
               {
                 q: 'Paketimi dilediğim zaman yükseltebilir veya iptal edebilir miyim?',
-                a: 'Evet. Üyelik paneliniz üzerinden dilediğiniz an tek tıkla üst pakete geçebilir veya üyeliğinizi iptal edebilirsiniz. Yıllık aboneliklerde kalan süre güvence altındadır.',
+                a: 'Ücretli paket yükseltme ve iptal işlemleri henüz kullanıma açık değildir; ödeme sağlayıcısı ve abonelik yönetimi etkinleştirildiğinde burada sunulacaktır.',
               },
               {
                 q: 'Veli paneli için ekstra ücret ödemem gerekir mi?',
-                a: 'Hayır. Starter, Pro ve Premium paketlerimizde veli takip paneli ve anlık bildirim erişimi tamamen ücretsiz olarak dahildir.',
+                a: 'Paket kapsamı plan özelliklerinde listelenir. Ücretli planların erişim hakları gerçek ödeme ve entitlement altyapısı etkinleştirilene kadar açılmaz.',
               },
               {
                 q: 'YKS, LGS ve KPSS için ayrı paket mi almam gerekir?',

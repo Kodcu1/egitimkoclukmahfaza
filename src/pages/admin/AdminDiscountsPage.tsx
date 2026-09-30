@@ -163,13 +163,14 @@ export const AdminDiscountsPage: React.FC = () => {
     setSimTestingAtomic(true);
     setAtomicSuccessMsg(null);
     try {
-      const ok = await db.redeemDiscountAtomic(discountId, simUserId || undefined);
-      if (ok) {
-        setAtomicSuccessMsg('Atomik kullanım başarıyla uygulandı (+1 kullanım).');
-        await loadData();
-      } else {
-        alert('Kupon limit aşımı, kullanıcı uyuşmazlığı veya geçersizlik nedeniyle atomik kullanım reddedildi.');
-      }
+      const discount = discounts.find((item) => item.id === discountId);
+      const plan = plans.find((item) => item.id === (discount?.plan_id || simPlanId));
+      if (!discount || !plan) throw new Error('Kupon fiyat önizlemesi için plan bulunamadı.');
+      const result = await db.calculateSubscriptionPrice(plan.id, simCycle, discount.code, simUserId || undefined);
+      setSimResult(result);
+      setAtomicSuccessMsg(result.error_message || 'Fiyat önizlemesi tamamlandı; kullanım sayısı, ödeme ve abonelik değiştirilmedi.');
+    } catch (err: any) {
+      setAtomicSuccessMsg(err.message || 'Kupon fiyatı doğrulanamadı; hiçbir kayıt değiştirilmedi.');
     } finally {
       setSimTestingAtomic(false);
     }
@@ -421,10 +422,10 @@ export const AdminDiscountsPage: React.FC = () => {
                       <button
                         onClick={() => handleTestAtomicRedeem(d.id)}
                         disabled={simTestingAtomic}
-                        title="Atomik Kullanım Testi Yap (+1)"
+                        title="Kupon fiyatını önizle; kullanım sayısı değişmez"
                         className="px-2 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 text-[10px] font-semibold border border-amber-500/20 cursor-pointer"
                       >
-                        Test Kullan
+                        Önizle
                       </button>
                       <button
                         onClick={() => openEditModal(d)}

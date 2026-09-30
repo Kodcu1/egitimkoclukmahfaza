@@ -574,34 +574,619 @@ class DatabaseEngine {
     return this.profiles.find((profile) => profile.email.trim().toLowerCase() === normalized) || null;
   }
 
+  async upsertProfile(profile: UserProfile): Promise<UserProfile> {
+    if (isSupabaseConfigured && supabase) {
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user || profile.user_id !== user.id) {
+        throw new Error('Profil yalnızca doğrulanmış oturum sahibi için yüklenebilir.');
+      }
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      if (error || !data) throw new Error(error?.message || 'Doğrulanmış profil bulunamadı.');
+      return this.createProfile(data as UserProfile);
+    }
+    return this.createProfile(profile);
+  }
+
+  async updateProfile(userId: string, updates: Partial<UserProfile>): Promise<UserProfile> {
+    const profile = this.profiles.find((item) => item.user_id === userId || item.id === userId);
+    if (!profile) throw new Error('Profil bulunamadı.');
+
+    const allowedFields: (keyof UserProfile)[] = [
+      'name', 'phone', 'avatar_url', 'target_exam', 'grade', 'field',
+      'target_university', 'target_department', 'target_rank', 'target_score',
+    ];
+    const safeUpdates: Partial<UserProfile> = {};
+    for (const field of allowedFields) {
+      if (field in updates) (safeUpdates as any)[field] = updates[field];
+    }
+
+    if (isSupabaseConfigured && supabase) {
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user || user.id !== profile.user_id) {
+        throw new Error('Yalnızca kendi profilinizi güncelleyebilirsiniz.');
+      }
+      const { data, error } = await supabase
+        .from('profiles')
+        .update({ ...safeUpdates, updated_at: new Date().toISOString() })
+        .eq('user_id', user.id)
+        .select('*')
+        .maybeSingle();
+      if (error) throw new Error(error.message);
+      if (!data) throw new Error('Profil güncellenemedi.');
+      Object.assign(profile, data);
+    } else {
+      Object.assign(profile, safeUpdates, { updated_at: new Date().toISOString() });
+    }
+
+    this.persistLocalOnly('profiles');
+    if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('profiles_updated'));
+    return profile;
+  }
+
+  async getSubscriptionPlans(activeOnly = true): Promise<SubscriptionPlan[]> {
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('subscription_plans')
+          .select('*')
+          .order('sort_order', { ascending: true });
+        if (!error && data?.length) this.subscriptionPlans = data as SubscriptionPlan[];
+      } catch {}
+    }
+
+    const plans = this.subscriptionPlans.slice();
+    return activeOnly ? plans.filter((plan) => plan.is_active) : plans;
+  }
+
+  async calculateSubscriptionPrice(
+    planId: string,
+    billingCycle: 'monthly' | 'yearly',
+    discountCode?: string,
+    userId?: string
+  ): Promise<PriceCalculationResult> {
+    const plan = (await this.getSubscriptionPlans(false)).find((item) => item.id === planId);
+    if (!plan) {
+      return { base_price: 0, discount_amount: 0, final_price: 0, error_message: 'Plan bulunamadı veya aktif değil.' };
+    }
+
+    const basePrice = billingCycle === 'yearly' ? plan.yearly_price : plan.monthly_price;
+    let pricingUserId = userId || null;
+    if (isSupabaseConfigured && supabase && isValidUUID(planId)) {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        pricingUserId = pricingUserId || user?.id || null;
+        const { data, error } = await supabase.rpc('calculate_subscription_price', {
+          p_plan_id: planId,
+          p_billing_cycle: billingCycle,
+          p_discount_code: discountCode?.trim() || null,
+          p_user_id: pricingUserId,
+        });
+        const result = Array.isArray(data) ? data[0] : data;
+        if (!error && result) {
+          return {
+            base_price: Number(result.base_price),
+            discount_amount: Number(result.discount_amount),
+            final_price: Number(result.final_price),
+            discount_id: result.discount_id,
+            discount_title: result.discount_title,
+            error_message: result.error_message,
+          };
+        }
+        if (discountCode) {
+          return { base_price: basePrice, discount_amount: 0, final_price: basePrice, error_message: error?.message || 'İndirim kodu doğrulanamadı.' };
+        }
+      } catch (error) {
+        if (discountCode) {
+          return { base_price: basePrice, discount_amount: 0, final_price: basePrice, error_message: error instanceof Error ? error.message : 'İndirim kodu doğrulanamadı.' };
+        }
+      }
+    }
+
+    if (!discountCode?.trim()) {
+      return { base_price: basePrice, discount_amount: 0, final_price: basePrice };
+    }
+
+    const now = Date.now();
+    const discount = this.adminDiscounts.find((item) =>
+      item.code.toUpperCase() === discountCode.trim().toUpperCase() &&
+      item.is_active &&
+      (!item.user_id || item.user_id === pricingUserId) &&
+      (!item.plan_id || item.plan_id === planId) &&
+      (!item.valid_from || new Date(item.valid_from).getTime() <= now) &&
+      (!item.valid_until || new Date(item.valid_until).getTime() >= now) &&
+      (item.max_redemptions == null || item.redemption_count < item.max_redemptions)
+    );
+    if (!discount) {
+      return { base_price: basePrice, discount_amount: 0, final_price: basePrice, error_message: 'İndirim kodu geçersiz veya kullanım limiti dolmuş.' };
+    }
+
+    const discountAmount = discount.discount_type === 'percentage'
+      ? Math.round(basePrice * discount.discount_value) / 100
+      : discount.discount_type === 'fixed'
+      ? Math.min(basePrice, discount.discount_value)
+      : basePrice;
+    return {
+      base_price: basePrice,
+      discount_amount: discountAmount,
+      final_price: Math.max(0, basePrice - discountAmount),
+      discount_id: discount.id,
+      discount_title: discount.title,
+    };
+  }
+
+  async getAdminDiscounts(activeOnly = true): Promise<AdminDiscount[]> {
+    if (isSupabaseConfigured && supabase) {
+      const { data, error } = await supabase.from('admin_discounts').select('*').order('created_at', { ascending: false });
+      if (error || !data) return [];
+      this.adminDiscounts = data as AdminDiscount[];
+    }
+    const discounts = this.adminDiscounts.slice();
+    return activeOnly ? discounts.filter((discount) => discount.is_active) : discounts;
+  }
+
+  async createAdminDiscount(discount: Omit<AdminDiscount, 'id' | 'redemption_count' | 'created_at' | 'updated_at'>): Promise<AdminDiscount> {
+    const payload = { ...discount, redemption_count: 0, updated_at: new Date().toISOString() };
+    if (isSupabaseConfigured && supabase) {
+      const { data, error } = await supabase.from('admin_discounts').insert(payload).select('*').single();
+      if (error) throw new Error(error.message);
+      const created = data as AdminDiscount;
+      this.adminDiscounts.unshift(created);
+      this.persistLocalOnly('adminDiscounts');
+      return created;
+    }
+    const created: AdminDiscount = { ...payload, id: `disc_${Date.now()}`, created_at: new Date().toISOString() };
+    this.adminDiscounts.unshift(created);
+    this.persist('adminDiscounts');
+    return created;
+  }
+
+  async updateAdminDiscount(discountId: string, updates: Partial<AdminDiscount>): Promise<void> {
+    if (isSupabaseConfigured && supabase) {
+      const { error } = await supabase.from('admin_discounts').update({ ...updates, updated_at: new Date().toISOString() }).eq('id', discountId);
+      if (error) throw new Error(error.message);
+    }
+    const discount = this.adminDiscounts.find((item) => item.id === discountId);
+    if (discount) Object.assign(discount, updates, { updated_at: new Date().toISOString() });
+    if (isSupabaseConfigured) this.persistLocalOnly('adminDiscounts');
+    else this.persist('adminDiscounts');
+  }
+
+  async deleteAdminDiscount(discountId: string): Promise<void> {
+    if (isSupabaseConfigured && supabase) {
+      const { error } = await supabase.from('admin_discounts').delete().eq('id', discountId);
+      if (error) throw new Error(error.message);
+    }
+    this.adminDiscounts = this.adminDiscounts.filter((item) => item.id !== discountId);
+    if (isSupabaseConfigured) this.persistLocalOnly('adminDiscounts');
+    else this.persist('adminDiscounts');
+  }
+
+  async createSubscriptionPlan(plan: Omit<SubscriptionPlan, 'id' | 'created_at' | 'updated_at'>): Promise<SubscriptionPlan> {
+    if (isSupabaseConfigured && supabase) {
+      const { data, error } = await supabase.from('subscription_plans').insert(plan).select('*').single();
+      if (error) throw new Error(error.message);
+      const created = data as SubscriptionPlan;
+      this.subscriptionPlans.push(created);
+      this.persistLocalOnly('subscriptionPlans');
+      return created;
+    }
+    const now = new Date().toISOString();
+    const created: SubscriptionPlan = { ...plan, id: `plan_${Date.now()}`, created_at: now, updated_at: now };
+    this.subscriptionPlans.push(created);
+    this.persist('subscriptionPlans');
+    return created;
+  }
+
+  async updateSubscriptionPlan(planId: string, updates: Partial<SubscriptionPlan>): Promise<void> {
+    if (isSupabaseConfigured && supabase) {
+      const { error } = await supabase.from('subscription_plans').update({ ...updates, updated_at: new Date().toISOString() }).eq('id', planId);
+      if (error) throw new Error(error.message);
+    }
+    const plan = this.subscriptionPlans.find((item) => item.id === planId);
+    if (plan) Object.assign(plan, updates, { updated_at: new Date().toISOString() });
+    if (isSupabaseConfigured) this.persistLocalOnly('subscriptionPlans');
+    else this.persist('subscriptionPlans');
+  }
+
+  async deleteSubscriptionPlan(planId: string): Promise<void> {
+    if (isSupabaseConfigured && supabase) {
+      const { error } = await supabase.from('subscription_plans').delete().eq('id', planId);
+      if (error) throw new Error(error.message);
+    }
+    this.subscriptionPlans = this.subscriptionPlans.filter((item) => item.id !== planId);
+    if (isSupabaseConfigured) this.persistLocalOnly('subscriptionPlans');
+    else this.persist('subscriptionPlans');
+  }
+
+  async getSubscriptions(): Promise<Subscription[]> {
+    if (isSupabaseConfigured && supabase) {
+      const { data, error } = await supabase
+        .from('subscriptions')
+        .select('*, plan:subscription_plans(*)')
+        .order('created_at', { ascending: false });
+      if (error || !data) return [];
+      this.subscriptions = data.map((item: any) => ({
+        ...item,
+        plan: Array.isArray(item.plan) ? item.plan[0] : item.plan,
+      })) as Subscription[];
+      return this.subscriptions.slice();
+    }
+    return this.subscriptions.slice();
+  }
+
+  async getPayments(): Promise<Payment[]> {
+    if (isSupabaseConfigured && supabase) {
+      const { data, error } = await supabase
+        .from('payments')
+        .select('*, plan:subscription_plans(*)')
+        .order('created_at', { ascending: false });
+      if (error || !data) return [];
+      this.payments = data.map((item: any) => ({
+        ...item,
+        plan_name: Array.isArray(item.plan) ? item.plan[0]?.name : item.plan?.name,
+      })) as Payment[];
+      return this.payments.slice();
+    }
+    return this.payments.slice();
+  }
+
+  async updateSubscription(subscriptionId: string, updates: Partial<Subscription>): Promise<void> {
+    if (isSupabaseConfigured && supabase) {
+      const { error } = await supabase.from('subscriptions').update({ ...updates, updated_at: new Date().toISOString() }).eq('id', subscriptionId);
+      if (error) throw new Error(error.message);
+    }
+    const subscription = this.subscriptions.find((item) => item.id === subscriptionId);
+    if (subscription) Object.assign(subscription, updates, { updated_at: new Date().toISOString() });
+    if (isSupabaseConfigured) this.persistLocalOnly('subscriptions');
+    else this.persist('subscriptions');
+  }
+
+  async getStudentEntitlements(): Promise<StudentEntitlement[]> {
+    if (isSupabaseConfigured && supabase) {
+      const { data, error } = await supabase.from('student_entitlements').select('*').order('created_at', { ascending: false });
+      if (error || !data) return [];
+      this.studentEntitlements = data as StudentEntitlement[];
+      return this.studentEntitlements.slice();
+    }
+    return this.studentEntitlements.slice();
+  }
+
+  async saveStudentEntitlement(
+    entitlement: Omit<StudentEntitlement, 'id' | 'created_at' | 'is_active'> & Partial<Pick<StudentEntitlement, 'id' | 'created_at' | 'is_active'>>
+  ): Promise<StudentEntitlement> {
+    const payload = { ...entitlement, is_active: entitlement.is_active ?? true };
+    if (isSupabaseConfigured && supabase) {
+      const { data, error } = await supabase.from('student_entitlements').insert(payload).select('*').single();
+      if (error) throw new Error(error.message);
+      const saved = data as StudentEntitlement;
+      this.studentEntitlements.unshift(saved);
+      this.persistLocalOnly('studentEntitlements');
+      return saved;
+    }
+
+    const saved: StudentEntitlement = {
+      ...payload,
+      id: entitlement.id || `ent_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      created_at: entitlement.created_at || new Date().toISOString(),
+    };
+    this.studentEntitlements.unshift(saved);
+    this.persist('studentEntitlements');
+    return saved;
+  }
+
+  async deleteStudentEntitlement(entitlementId: string): Promise<void> {
+    if (isSupabaseConfigured && supabase) {
+      const { error } = await supabase.from('student_entitlements').delete().eq('id', entitlementId);
+      if (error) throw new Error(error.message);
+    }
+    this.studentEntitlements = this.studentEntitlements.filter((item) => item.id !== entitlementId);
+    if (isSupabaseConfigured) this.persistLocalOnly('studentEntitlements');
+    else this.persist('studentEntitlements');
+  }
+
+  async checkStudentEntitlement(studentId: string): Promise<{
+    isPro: boolean;
+    isStandard: boolean;
+    isSponsored: boolean;
+    className?: string;
+    validUntil?: string;
+    reason?: string;
+  }> {
+    const now = new Date();
+    let entitlements = this.studentEntitlements.filter(
+      (item) => item.student_id === studentId && item.is_active && new Date(item.valid_until) > now
+    );
+    let sponsoredClass: SponsoredClass | undefined;
+
+    if (isSupabaseConfigured && supabase) {
+      if (!isValidUUID(studentId)) return { isPro: false, isStandard: false, isSponsored: false };
+      const [entitlementResult, classResult] = await Promise.all([
+        supabase.from('student_entitlements').select('*').eq('student_id', studentId).eq('is_active', true).gt('valid_until', now.toISOString()),
+        supabase.from('sponsored_classes').select('*').eq('is_active', true).gt('end_date', now.toISOString()),
+      ]);
+      if (entitlementResult.error || classResult.error) return { isPro: false, isStandard: false, isSponsored: false };
+      entitlements = (entitlementResult.data || []) as StudentEntitlement[];
+      sponsoredClass = (classResult.data || []).find((item: any) => Array.isArray(item.student_ids) && item.student_ids.includes(studentId)) as SponsoredClass | undefined;
+    } else {
+      sponsoredClass = this.sponsoredClasses.find(
+        (item) => item.is_active && new Date(item.end_date) > now && item.student_ids.includes(studentId)
+      );
+    }
+
+    const entitlement = entitlements.sort((a, b) => (b.access_tier === 'pro' ? 1 : 0) - (a.access_tier === 'pro' ? 1 : 0))[0];
+    return {
+      isPro: entitlement?.access_tier === 'pro',
+      isStandard: entitlement?.access_tier === 'standard',
+      isSponsored: Boolean(sponsoredClass),
+      className: sponsoredClass?.name,
+      validUntil: entitlement?.valid_until,
+      reason: entitlement?.reason,
+    };
+  }
+
+  async checkFeatureAccess(actorId: string, featureKey: FeatureKey): Promise<FeatureAccessResult> {
+    const requiredPlan: Record<FeatureKey, FeatureAccessResult['requiredPlan']> = {
+      parent_access: 'Starter',
+      pdf_reports: 'Starter',
+      advanced_reports: 'Pro',
+      ai_student_analysis: 'Free',
+      ai_study_planner: 'Pro',
+      coach_portfolio: 'Starter',
+      task_assignment: 'Pro',
+      private_lesson: 'Pro',
+      sponsored_class: 'Kurumsal',
+      messages: 'Starter',
+      sms: 'Kurumsal',
+      ai_monthly_limit: 'Free',
+    };
+    const deny = (planName?: string, reason = 'Bu özellik için etkin bir paket yetkisi bulunamadı.'): FeatureAccessResult => ({
+      hasAccess: false,
+      featureKey,
+      requiredPlan: requiredPlan[featureKey],
+      currentPlanName: planName,
+      reason,
+    });
+
+    if (!isSupabaseConfigured || !supabase) return deny(undefined, 'Abonelik kaynağı doğrulanamadı.');
+    try {
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user || actorId !== user.id) return deny(undefined, 'Oturum sahibi doğrulanamadı.');
+
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      if (profileError || !profile) return deny();
+
+      const now = new Date();
+      const { data: authoritativePlans, error: plansError } = await supabase
+        .from('subscription_plans')
+        .select('*');
+      if (plansError || !authoritativePlans?.length) return deny(undefined, 'Abonelik planı veritabanından doğrulanamadı.');
+      const plans = authoritativePlans as SubscriptionPlan[];
+      let plan: SubscriptionPlan | undefined;
+      let entitlementPlan: SubscriptionPlan | undefined;
+
+      if (profile.role === 'parent') {
+        const { data: links, error: linkError } = await supabase
+          .from('parent_student_links')
+          .select('student_id')
+          .eq('parent_id', user.id);
+        if (linkError) return deny();
+        const studentIds = (links || []).map((link: any) => link.student_id);
+        if (studentIds.length) {
+          const { data: entitlements, error: entitlementError } = await supabase
+            .from('student_entitlements')
+            .select('*')
+            .in('student_id', studentIds)
+            .eq('is_active', true)
+            .gt('valid_until', now.toISOString());
+          if (entitlementError) return deny();
+          const entitlement = (entitlements || []).find((item: any) => item.access_tier === 'pro') || entitlements?.[0];
+          if (entitlement) {
+            const slug = entitlement.access_tier === 'pro' ? 'pro' : 'starter';
+            entitlementPlan = plans.find((item) => item.slug === slug);
+          }
+        }
+      } else {
+        const { data: subscriptions, error: subscriptionError } = await supabase
+          .from('subscriptions')
+          .select('plan:subscription_plans(*)')
+          .eq('user_id', user.id)
+          .in('status', ['active', 'trialing'])
+          .gt('current_period_end', now.toISOString())
+          .order('created_at', { ascending: false })
+          .limit(1);
+        if (subscriptionError) return deny();
+        const planRow = subscriptions?.[0]?.plan;
+        plan = (Array.isArray(planRow) ? planRow[0] : planRow) as SubscriptionPlan | undefined;
+      }
+
+      const currentPlan = entitlementPlan || plan || plans.find((item) => item.slug === 'free');
+      if (!currentPlan) return deny();
+      const isAdmin = profile.role === 'admin' || profile.role === 'org_admin';
+      let currentUsage: number | undefined;
+      if (featureKey.startsWith('ai_')) {
+        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+        const { count, error: usageError } = await supabase
+          .from('ai_usage')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', user.id)
+          .gte('created_at', monthStart);
+        if (usageError) return deny(currentPlan.name, 'AI kullanım kotası doğrulanamadı.');
+        currentUsage = count || 0;
+      }
+
+      const listedFeature = (pattern: RegExp) => currentPlan.features?.some((feature) => pattern.test(feature)) || false;
+      let hasAccess = isAdmin;
+      if (!isAdmin) {
+        switch (featureKey) {
+          case 'parent_access': hasAccess = currentPlan.parent_access; break;
+          case 'pdf_reports': hasAccess = currentPlan.pdf_reports; break;
+          case 'advanced_reports': hasAccess = currentPlan.advanced_reports; break;
+          case 'ai_student_analysis': hasAccess = currentPlan.ai_monthly_limit > (currentUsage || 0); break;
+          case 'ai_study_planner': hasAccess = ['pro', 'premium', 'enterprise'].includes(currentPlan.slug) && currentPlan.ai_monthly_limit > (currentUsage || 0); break;
+          case 'coach_portfolio': hasAccess = ['coach', 'head_coach', 'org_admin'].includes(profile.role) && currentPlan.student_limit > 1; break;
+          case 'task_assignment': hasAccess = ['coach', 'head_coach', 'org_admin'].includes(profile.role) && currentPlan.student_limit > 1; break;
+          case 'private_lesson': hasAccess = (currentPlan.private_lessons_per_month || 0) > 0 || ['pro', 'premium'].includes(currentPlan.slug); break;
+          case 'sponsored_class': hasAccess = Boolean(entitlementPlan); break;
+          case 'messages': hasAccess = listedFeature(/mesaj|message/i); break;
+          case 'sms': hasAccess = listedFeature(/\bSMS\b/i); break;
+          case 'ai_monthly_limit': hasAccess = (currentPlan.ai_monthly_limit || 0) > (currentUsage || 0); break;
+        }
+      }
+      const result: FeatureAccessResult = {
+        hasAccess,
+        featureKey,
+        requiredPlan: requiredPlan[featureKey],
+        currentPlanName: currentPlan.name,
+        limit: featureKey.startsWith('ai_') ? currentPlan.ai_monthly_limit : undefined,
+        currentUsage,
+        remaining: featureKey.startsWith('ai_') ? Math.max(0, currentPlan.ai_monthly_limit - (currentUsage || 0)) : undefined,
+      };
+      if (!hasAccess) result.reason = `${requiredPlan[featureKey]} veya üzeri etkin bir paket gereklidir.`;
+      return result;
+    } catch {
+      return deny(undefined, 'Entitlement doğrulanamadı.');
+    }
+  }
+
+  async getStudentMoods(studentId: string, limit = 30): Promise<StudentMood[]> {
+    const student = this.students.find((item) => item.id === studentId || item.user_id === studentId);
+    const canonicalStudentId = student?.id || studentId;
+    if (isSupabaseConfigured && supabase) {
+      if (!isValidUUID(canonicalStudentId)) throw new Error('Geçerli öğrenci kaydı bulunamadı.');
+      const { data, error } = await supabase
+        .from('student_moods')
+        .select('*')
+        .eq('student_id', canonicalStudentId)
+        .order('date', { ascending: false })
+        .limit(Math.max(1, Math.min(limit, 90)));
+      if (error) throw new Error(error.message);
+      return (data || []) as StudentMood[];
+    }
+    return this.studentMoods
+      .filter((item) => item.student_id === canonicalStudentId)
+      .sort((a, b) => b.date.localeCompare(a.date))
+      .slice(0, Math.max(1, Math.min(limit, 90)));
+  }
+
+  async getTodayStudentMood(studentId: string): Promise<StudentMood | null> {
+    const today = new Date().toISOString().slice(0, 10);
+    const moods = await this.getStudentMoods(studentId, 90);
+    return moods.find((item) => item.date === today) || null;
+  }
+
+  async getLatestMoodsMap(): Promise<Record<string, StudentMood>> {
+    if (isSupabaseConfigured && supabase) {
+      const { data, error } = await supabase
+        .from('student_moods')
+        .select('*')
+        .order('date', { ascending: false });
+      if (error) throw new Error(error.message);
+      const result: Record<string, StudentMood> = {};
+      for (const mood of (data || []) as StudentMood[]) {
+        if (result[mood.student_id]) continue;
+        result[mood.student_id] = mood;
+        const student = this.students.find((item) => item.id === mood.student_id);
+        if (student?.user_id) result[student.user_id] = mood;
+      }
+      return result;
+    }
+
+    const result: Record<string, StudentMood> = {};
+    for (const mood of this.studentMoods.slice().sort((a, b) => b.date.localeCompare(a.date))) {
+      if (result[mood.student_id]) continue;
+      result[mood.student_id] = mood;
+      const student = this.students.find((item) => item.id === mood.student_id);
+      if (student?.user_id) result[student.user_id] = mood;
+    }
+    return result;
+  }
+
+  async saveStudentMood(studentId: string, mood: MoodKey, note = ''): Promise<StudentMood> {
+    const student = this.students.find((item) => item.id === studentId || item.user_id === studentId);
+    if (!student) throw new Error('Öğrenci kaydı bulunamadı.');
+    const moodLabels: Record<MoodKey, { label: string; emoji: string }> = {
+      joyful: { label: 'Neşe Dolu', emoji: '😊' },
+      hopeful: { label: 'Umutlu', emoji: '🌟' },
+      energetic: { label: 'Enerjik', emoji: '⚡' },
+      focused: { label: 'Odaklanmış', emoji: '🎯' },
+      calm: { label: 'Huzurlu', emoji: '🌿' },
+      undecided: { label: 'Kararsız', emoji: '⛅' },
+      tired: { label: 'Yorgun', emoji: '🔋' },
+      stressed: { label: 'Stresli', emoji: '🌧️' },
+      anxious: { label: 'Endişeli', emoji: '🌪️' },
+    };
+    const date = new Date().toISOString().slice(0, 10);
+    const createdAt = new Date().toISOString();
+    const moodValue: Omit<StudentMood, 'id' | 'created_at'> & Partial<Pick<StudentMood, 'id' | 'created_at'>> = {
+      student_id: student.id,
+      date,
+      mood,
+      mood_label: moodLabels[mood].label,
+      mood_emoji: moodLabels[mood].emoji,
+      note: note.trim() || undefined,
+      created_at: createdAt,
+    };
+
+    let saved: StudentMood;
+    if (isSupabaseConfigured && supabase) {
+      if (!isValidUUID(student.id)) throw new Error('Duygu durumu için geçerli öğrenci ID bulunamadı.');
+      const { data, error } = await supabase
+        .from('student_moods')
+        .upsert(moodValue, { onConflict: 'student_id,date' })
+        .select('*')
+        .single();
+      if (error) throw new Error(error.message);
+      saved = data as StudentMood;
+    } else {
+      const existing = this.studentMoods.find((item) => item.student_id === student.id && item.date === date);
+      saved = { ...moodValue, id: existing?.id || `mood_${Date.now()}`, created_at: existing?.created_at || createdAt };
+    }
+
+    this.studentMoods = [saved, ...this.studentMoods.filter((item) => !(item.student_id === student.id && item.date === date))];
+    this.persistLocalOnly('studentMoods');
+    if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('moods_updated'));
+    return saved;
+  }
+
   async verifyUserEmail(email: string): Promise<void> {
     const normalizedEmail = email.trim().toLowerCase();
     if (!normalizedEmail) return;
 
-    const verifiedAt = new Date().toISOString();
-    let profileFound = false;
-    this.profiles.forEach((profile) => {
-      if (profile.email.trim().toLowerCase() !== normalizedEmail) return;
-      if (profile.is_verified !== true || !profile.email_confirmed_at) profile.updated_at = verifiedAt;
-      profile.is_verified = true;
-      profile.email_confirmed_at = profile.email_confirmed_at || verifiedAt;
-      profileFound = true;
-    });
+    let verifiedAt = new Date().toISOString();
+    if (isSupabaseConfigured && supabase) {
+      const { data: { user }, error } = await supabase.auth.getUser();
+      if (error || !user?.email_confirmed_at || user.email?.trim().toLowerCase() !== normalizedEmail) {
+        throw new Error('E-posta doğrulaması Supabase Auth tarafından onaylanmadı.');
+      }
+      verifiedAt = user.email_confirmed_at;
+    }
 
-    let studentFound = false;
-    this.students.forEach((student) => {
-      if (student.email.trim().toLowerCase() !== normalizedEmail) return;
-      if (student.is_verified !== true) student.updated_at = verifiedAt;
+    const profile = this.profiles.find((item) => item.email.trim().toLowerCase() === normalizedEmail);
+    if (!profile) throw new Error('E-posta ile eşleşen kullanıcı profili bulunamadı.');
+
+    profile.is_verified = true;
+    profile.email_confirmed_at = verifiedAt;
+    profile.updated_at = verifiedAt;
+    this.persistLocalOnly('profiles');
+
+    const student = this.students.find((item) => item.email.trim().toLowerCase() === normalizedEmail);
+    if (student) {
       student.is_verified = true;
-      studentFound = true;
-    });
-
-    if (profileFound) this.persist('profiles');
-    if (studentFound) this.persist('students');
+      student.updated_at = verifiedAt;
+      this.persistLocalOnly('students');
+    }
 
     if (typeof window !== 'undefined') {
-      if (profileFound) window.dispatchEvent(new CustomEvent('profiles_updated'));
-      if (studentFound) window.dispatchEvent(new CustomEvent('students_updated'));
+      window.dispatchEvent(new CustomEvent('profiles_updated'));
+      if (student) window.dispatchEvent(new CustomEvent('students_updated'));
     }
   }
 
@@ -922,61 +1507,139 @@ class DatabaseEngine {
     this.persist('notifications');
   }
 
-  getXpApprovals(coachId?: string): XpApprovalRequest[] {
+  async getXpApprovals(coachId?: string): Promise<XpApprovalRequest[]> {
     let approvals = this.xpApprovals.slice();
+    if (isSupabaseConfigured && supabase) {
+      const { data, error } = await supabase.from('xp_approvals').select('*').order('created_at', { ascending: false });
+      if (error || !data) return [];
+      this.xpApprovals = data as XpApprovalRequest[];
+      approvals = this.xpApprovals.slice();
+    }
     if (coachId) {
       const normalizedCoachId = coachId.trim();
-      approvals = approvals.filter((approval) => approval.coach_id === normalizedCoachId || approval.coach_id === undefined || approval.coach_id === DEMO_COACH_ID || approval.coach_id === SYSTEM_FOUNDER_ID);
+      approvals = approvals.filter((approval) => approval.coach_id === normalizedCoachId);
     }
     return this.sortByCreatedAtDesc(approvals);
   }
 
-  getPendingXpApprovalsCount(coachId?: string): number {
-    return this.getXpApprovals(coachId).filter((approval) => approval.status === 'pending').length;
+  async getPendingXpApprovalsCount(coachId?: string): Promise<number> {
+    return (await this.getXpApprovals(coachId)).filter((approval) => approval.status === 'pending').length;
+  }
+
+  private async submitXpApproval(approval: XpApprovalRequest): Promise<XpApprovalRequest> {
+    if (isSupabaseConfigured && supabase) {
+      if (!isValidUUID(approval.student_id) || !isValidUUID(approval.activity_id)) {
+        throw new Error('XP talebi için doğrulanmış etkinlik ve öğrenci kayıtları gereklidir.');
+      }
+      const { data, error } = await supabase.rpc('submit_xp_approval_atomic', {
+        p_student_id: approval.student_id,
+        p_activity_type: approval.activity_type,
+        p_activity_id: approval.activity_id,
+        p_proof_url: approval.proof_url || null,
+        p_proof_name: approval.proof_name || null,
+      });
+      if (error) throw new Error(error.message);
+      const result = Array.isArray(data) ? data[0] : data;
+      if (!result?.success || !result.approval) throw new Error(result?.error || 'XP talebi kaydedilemedi.');
+      const saved = result.approval as XpApprovalRequest;
+      this.xpApprovals = [saved, ...this.xpApprovals.filter((item) => item.id !== saved.id)];
+      this.persistLocalOnly('xpApprovals');
+      return saved;
+    }
+
+    this.xpApprovals.unshift(approval);
+    this.persist('xpApprovals');
+    return approval;
   }
 
   async processXpApproval(approvalId: string, status: ApprovalStatus, coachNotes?: string): Promise<XpApprovalRequest> {
+    if (status !== 'approved' && status !== 'rejected') throw new Error('Geçersiz XP onay durumu.');
     const index = this.xpApprovals.findIndex((approval) => approval.id === approvalId);
     if (index < 0) throw new Error('XP onay talebi bulunamadı.');
 
     const existing = this.xpApprovals[index];
-    if (existing.status === status) return existing;
+    if (existing.status !== 'pending') return existing;
 
-    const updated: XpApprovalRequest = {
-      ...existing,
-      status,
-      coach_notes: coachNotes || existing.coach_notes,
-      processed_at: new Date().toISOString(),
-    };
+    const student = this.students.find((item) => item.id === existing.student_id || item.user_id === existing.student_id);
+    if (!student) throw new Error('Onaya bağlı öğrenci bulunamadı.');
 
-    this.xpApprovals[index] = updated;
-    this.persist('xpApprovals');
+    const now = new Date().toISOString();
+    const actionId = `approval_${existing.id}`;
+    if (isSupabaseConfigured && supabase) {
+      if (!isValidUUID(student.id)) throw new Error('XP onayı için doğrulanmış öğrenci kaydı gereklidir.');
+      const { data, error } = await supabase.rpc('process_xp_approval_atomic', {
+        p_approval_id: existing.id,
+        p_status: status,
+        p_coach_notes: coachNotes || null,
+      });
+      if (error) throw new Error(error.message);
+      const result = Array.isArray(data) ? data[0] : data;
+      if (!result?.success) throw new Error(result?.error || 'XP onayı işlenemedi.');
 
-    if (status === 'approved') {
-      const student = await this.getStudentById(existing.student_id);
-      if (student) {
-        const total = (student.total_xp ?? student.xp ?? 0) + existing.calculated_xp;
-        const spendable = (student.spendable_xp ?? student.xp ?? 0) + existing.calculated_xp;
-        student.total_xp = total;
-        student.spendable_xp = spendable;
-        student.xp = total;
-        student.level = calculateLevel(total);
-        student.updated_at = new Date().toISOString();
+      const updated: XpApprovalRequest = {
+        ...existing,
+        status: result.status || status,
+        coach_notes: coachNotes || existing.coach_notes,
+        processed_at: now,
+      };
+      this.xpApprovals[index] = updated;
+      if (typeof result.total_xp === 'number') student.total_xp = result.total_xp;
+      if (typeof result.spendable_xp === 'number') student.spendable_xp = result.spendable_xp;
+      if (typeof result.total_xp === 'number') student.xp = result.total_xp;
+      if (typeof result.level === 'number') student.level = result.level;
+      student.updated_at = now;
+
+      if (updated.status === 'approved' && !this.xpTransactions.some((transaction) => transaction.action_id === actionId)) {
         this.xpTransactions.unshift({
           id: `xp_${Math.random().toString(36).substring(2, 9)}`,
           student_id: student.id,
           amount: existing.calculated_xp,
           reason: `Koç onayı: ${existing.title}`,
-          source_type: 'study_log',
+          source_type: existing.activity_type,
           source_id: existing.activity_id,
-          action_id: `approval_${existing.id}`,
-          created_at: new Date().toISOString(),
+          action_id: actionId,
+          created_at: now,
         });
-        this.persist('students');
-        this.persist('xpTransactions');
       }
+      this.persistLocalOnly('xpApprovals');
+      this.persistLocalOnly('students');
+      this.persistLocalOnly('xpTransactions');
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('approvals_updated'));
+        if (updated.status === 'approved') window.dispatchEvent(new CustomEvent('xp_updated'));
+      }
+      return updated;
     }
 
+    const updated: XpApprovalRequest = {
+      ...existing,
+      status,
+      coach_notes: coachNotes || existing.coach_notes,
+      processed_at: now,
+    };
+    this.xpApprovals[index] = updated;
+    if (status === 'approved' && !this.xpTransactions.some((transaction) => transaction.action_id === actionId)) {
+      const total = (student.total_xp ?? student.xp ?? 0) + existing.calculated_xp;
+      const spendable = (student.spendable_xp ?? student.xp ?? 0) + existing.calculated_xp;
+      student.total_xp = total;
+      student.spendable_xp = spendable;
+      student.xp = total;
+      student.level = calculateLevel(total);
+      student.updated_at = now;
+      this.xpTransactions.unshift({
+        id: `xp_${Math.random().toString(36).substring(2, 9)}`,
+        student_id: student.id,
+        amount: existing.calculated_xp,
+        reason: `Koç onayı: ${existing.title}`,
+        source_type: existing.activity_type,
+        source_id: existing.activity_id,
+        action_id: actionId,
+        created_at: now,
+      });
+      this.persistLocalOnly('students');
+      this.persistLocalOnly('xpTransactions');
+    }
+    this.persistLocalOnly('xpApprovals');
     if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('approvals_updated'));
     return updated;
   }
@@ -988,8 +1651,9 @@ class DatabaseEngine {
   }
 
   async deleteXpApproval(approvalId: string): Promise<void> {
+    if (isSupabaseConfigured) throw new Error('Üretimde XP onay geçmişi silinemez.');
     this.xpApprovals = this.xpApprovals.filter((approval) => approval.id !== approvalId);
-    this.persist('xpApprovals');
+    this.persistLocalOnly('xpApprovals');
   }
 
   async addStudyLog(log: Omit<StudyLog, 'id' | 'created_at'>): Promise<StudyLog> {
@@ -1001,39 +1665,41 @@ class DatabaseEngine {
     };
 
     if (isSupabaseConfigured && supabase) {
-      try {
-        const studentRecord = this.students.find((s) => s.id === newLog.student_id || s.user_id === newLog.student_id);
-        await supabase.from('study_logs').insert([{
-          id: isValidUUID(id) ? id : undefined,
-          student_id: studentRecord?.id || newLog.student_id,
-          exam_type: newLog.exam_type || 'TYT',
-          test_name: newLog.test_name || newLog.subject_name,
-          subject_name: newLog.subject_name,
-          topic_name: newLog.topic_name,
-          subtopic_name: newLog.subtopic_name || null,
-          duration_minutes: newLog.duration_minutes || 0,
-          question_count: newLog.question_count || 0,
-          correct_count: newLog.correct_count || 0,
-          wrong_count: newLog.wrong_count || 0,
-          empty_count: newLog.empty_count || 0,
-          net_count: newLog.net_count || 0,
-          study_date: newLog.study_date || new Date().toISOString().split('T')[0],
-          notes: newLog.notes || null,
-          created_at: newLog.created_at,
-        }]);
-      } catch (err) {}
+      const studentRecord = this.students.find((s) => s.id === newLog.student_id || s.user_id === newLog.student_id);
+      if (!studentRecord || !isValidUUID(id) || !isValidUUID(studentRecord.id)) {
+        throw new Error('XP onayı için doğrulanmış öğrenci ve çalışma kaydı gereklidir.');
+      }
+      const { error } = await supabase.from('study_logs').insert([{
+        id,
+        student_id: studentRecord.id,
+        exam_type: newLog.exam_type || 'TYT',
+        test_name: newLog.test_name || newLog.subject_name,
+        subject_name: newLog.subject_name,
+        topic_name: newLog.topic_name,
+        subtopic_name: newLog.subtopic_name || null,
+        duration_minutes: newLog.duration_minutes || 0,
+        question_count: newLog.question_count || 0,
+        correct_count: newLog.correct_count || 0,
+        wrong_count: newLog.wrong_count || 0,
+        empty_count: newLog.empty_count || 0,
+        net_count: newLog.net_count || 0,
+        study_date: newLog.study_date || new Date().toISOString().split('T')[0],
+        notes: newLog.notes || null,
+        created_at: newLog.created_at,
+      }]);
+      if (error) throw new Error(error.message);
     }
 
     this.studyLogs.unshift(newLog);
     this.persist('studyLogs');
 
     const calculatedXp = calculateXpForStudyLog(newLog.question_count || 0);
-    const student = this.students.find((s) => s.id === newLog.student_id);
+    const student = this.students.find((s) => s.id === newLog.student_id || s.user_id === newLog.student_id);
 
     // 🚀 MADDE 8: Otomatik XP Verme İptal Edildi! Sadece "Pending" Onay İsteği Gönderilir.
     const approvalReq: XpApprovalRequest = {
       id: 'xp_app_' + Math.random().toString(36).substring(2, 9),
-      student_id: newLog.student_id,
+      student_id: student?.id || newLog.student_id,
       student_name: student?.name || 'Öğrenci',
       coach_id: student?.coach_id || DEMO_COACH_ID,
       activity_type: 'study_log',
@@ -1050,14 +1716,7 @@ class DatabaseEngine {
       proof_url: newLog.proof_url,
       proof_name: newLog.proof_name,
     };
-    this.xpApprovals.unshift(approvalReq);
-    this.persist('xpApprovals');
-
-    if (isSupabaseConfigured && supabase) {
-      try {
-        await supabase.from('xp_approvals').insert([approvalReq]);
-      } catch(e) {}
-    }
+    await this.submitXpApproval(approvalReq);
 
     if (student) {
       this.createNotification({
@@ -1069,7 +1728,7 @@ class DatabaseEngine {
       });
     }
 
-    this.auditStudent(newLog.student_id);
+    this.auditStudent(student?.id || newLog.student_id);
     return newLog;
   }
 
@@ -1082,36 +1741,38 @@ class DatabaseEngine {
     };
 
     if (isSupabaseConfigured && supabase) {
-      try {
-        const studentRecord = this.students.find((s) => s.id === newExam.student_id || s.user_id === newExam.student_id);
-        await supabase.from('exam_results').insert([{
-          id: isValidUUID(id) ? id : undefined,
-          student_id: studentRecord?.id || newExam.student_id,
-          exam_type: newExam.exam_type || 'TYT',
-          exam_name: newExam.exam_name,
-          exam_date: newExam.exam_date || new Date().toISOString().split('T')[0],
-          total_questions: newExam.total_questions || 0,
-          total_correct: newExam.total_correct || 0,
-          total_wrong: newExam.total_wrong || 0,
-          total_empty: newExam.total_empty || 0,
-          total_net: newExam.total_net || 0,
-          score: newExam.score || null,
-          notes: newExam.notes || null,
-          created_at: newExam.created_at,
-        }]);
-      } catch (err) {}
+      const studentRecord = this.students.find((s) => s.id === newExam.student_id || s.user_id === newExam.student_id);
+      if (!studentRecord || !isValidUUID(id) || !isValidUUID(studentRecord.id)) {
+        throw new Error('XP onayı için doğrulanmış öğrenci ve deneme kaydı gereklidir.');
+      }
+      const { error } = await supabase.from('exam_results').insert([{
+        id,
+        student_id: studentRecord.id,
+        exam_type: newExam.exam_type || 'TYT',
+        exam_name: newExam.exam_name,
+        exam_date: newExam.exam_date || new Date().toISOString().split('T')[0],
+        total_questions: newExam.total_questions || 0,
+        total_correct: newExam.total_correct || 0,
+        total_wrong: newExam.total_wrong || 0,
+        total_empty: newExam.total_empty || 0,
+        total_net: newExam.total_net || 0,
+        score: newExam.score || null,
+        notes: newExam.notes || null,
+        created_at: newExam.created_at,
+      }]);
+      if (error) throw new Error(error.message);
     }
 
     this.exams.unshift(newExam);
     this.persist('exams');
 
     const calculatedXp = calculateXpForExam();
-    const student = this.students.find((s) => s.id === newExam.student_id);
+    const student = this.students.find((s) => s.id === newExam.student_id || s.user_id === newExam.student_id);
 
     // 🚀 MADDE 8: Otomatik XP Verme İptal Edildi! Sadece "Pending" Onay İsteği Gönderilir.
     const approvalReq: XpApprovalRequest = {
       id: 'xp_app_' + Math.random().toString(36).substring(2, 9),
-      student_id: newExam.student_id,
+      student_id: student?.id || newExam.student_id,
       student_name: student?.name || 'Öğrenci',
       coach_id: student?.coach_id || DEMO_COACH_ID,
       activity_type: 'exam',
@@ -1124,16 +1785,9 @@ class DatabaseEngine {
       requested_at: new Date().toISOString(),
       created_at: new Date().toISOString(),
     };
-    this.xpApprovals.unshift(approvalReq);
-    this.persist('xpApprovals');
+    await this.submitXpApproval(approvalReq);
 
-    if (isSupabaseConfigured && supabase) {
-      try {
-        await supabase.from('xp_approvals').insert([approvalReq]);
-      } catch(e) {}
-    }
-
-    this.auditStudent(newExam.student_id);
+    this.auditStudent(student?.id || newExam.student_id);
 
     if (student) {
       this.createNotification({
@@ -1149,31 +1803,230 @@ class DatabaseEngine {
   }
 
   // --- REWARDS & PURCHASING (Negatif Bakiye ve Total XP Güvenliği) ---
+  async getRewards(): Promise<Reward[]> {
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const { data, error } = await supabase.from('rewards').select('*').order('created_at', { ascending: false });
+        if (!error && data?.length) {
+          this.rewards = data as Reward[];
+          return this.rewards.slice();
+        }
+      } catch {}
+    }
+    return this.rewards.slice();
+  }
+
+  async getClaims(): Promise<RewardRequest[]> {
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('reward_requests')
+          .select('*, reward:rewards(*), student:students(name,email)')
+          .order('requested_at', { ascending: false });
+        if (!error && data) {
+          return data.map((claim: any) => ({
+            ...claim,
+            student_name: claim.student?.name,
+          })) as RewardRequest[];
+        }
+      } catch {}
+      return [];
+    }
+    return this.rewardRequests.slice();
+  }
+
+  async getClaimsByStudent(studentId: string): Promise<RewardRequest[]> {
+    if (isSupabaseConfigured && supabase) {
+      if (!isValidUUID(studentId)) return [];
+      try {
+        const { data, error } = await supabase
+          .from('reward_requests')
+          .select('*, reward:rewards(*)')
+          .eq('student_id', studentId)
+          .order('requested_at', { ascending: false });
+        if (!error && data) return data as RewardRequest[];
+      } catch {}
+      return [];
+    }
+    return this.rewardRequests.filter((request) => request.student_id === studentId);
+  }
+
+  async addReward(reward: Omit<Reward, 'id' | 'created_at'>): Promise<Reward> {
+    if (isSupabaseConfigured && supabase) {
+      const { data, error } = await supabase.from('rewards').insert(reward).select('*').single();
+      if (error) throw new Error(error.message);
+      const created = data as Reward;
+      this.rewards.unshift(created);
+      this.persistLocalOnly('rewards');
+      return created;
+    }
+
+    const created: Reward = {
+      ...reward,
+      id: `reward_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      created_at: new Date().toISOString(),
+    };
+    this.rewards.unshift(created);
+    this.persist('rewards');
+    return created;
+  }
+
+  async updateReward(rewardId: string, updates: Partial<Reward>): Promise<void> {
+    if (isSupabaseConfigured && supabase) {
+      const { error } = await supabase.from('rewards').update(updates).eq('id', rewardId);
+      if (error) throw new Error(error.message);
+    }
+    const reward = this.rewards.find((item) => item.id === rewardId);
+    if (reward) Object.assign(reward, updates);
+    if (isSupabaseConfigured) this.persistLocalOnly('rewards');
+    else this.persist('rewards');
+  }
+
+  async deleteReward(rewardId: string): Promise<void> {
+    if (isSupabaseConfigured && supabase) {
+      const { error } = await supabase.from('rewards').delete().eq('id', rewardId);
+      if (error) throw new Error(error.message);
+    }
+    this.rewards = this.rewards.filter((item) => item.id !== rewardId);
+    if (isSupabaseConfigured) this.persistLocalOnly('rewards');
+    else this.persist('rewards');
+  }
+
+  async updateClaimStatus(claimId: string, status: 'approved' | 'delivered' | 'rejected'): Promise<void> {
+    const now = new Date().toISOString();
+    if (isSupabaseConfigured && supabase) {
+      const { data: claim, error: readError } = await supabase
+        .from('reward_requests')
+        .select('id, student_id, reward_id, status, reward:rewards(cost_xp)')
+        .eq('id', claimId)
+        .maybeSingle();
+      if (readError) throw new Error(readError.message);
+      if (!claim) throw new Error('Ödül talebi bulunamadı.');
+
+      if (status === 'rejected') {
+        const { data, error } = await supabase.rpc('refund_reward_atomic', {
+          p_request_id: claimId,
+          p_coach_notes: null,
+        });
+        if (error) throw new Error(error.message);
+        const result = Array.isArray(data) ? data[0] : data;
+        if (!result?.success) throw new Error(result?.error || 'XP iadesi yapılamadı.');
+
+        const student = this.students.find((item) => item.id === claim.student_id);
+        if (student && !result.duplicate) {
+          const refund = Number(result.refunded_xp || (claim as any).reward?.cost_xp || 0);
+          student.spendable_xp = (student.spendable_xp ?? student.xp ?? 0) + refund;
+          student.updated_at = now;
+          this.persistLocalOnly('students');
+        }
+      } else {
+        const { error } = await supabase
+          .from('reward_requests')
+          .update({ status, processed_at: now })
+          .eq('id', claimId);
+        if (error) throw new Error(error.message);
+      }
+    } else {
+      const claim = this.rewardRequests.find((item) => item.id === claimId);
+      if (!claim) throw new Error('Ödül talebi bulunamadı.');
+      if (status === 'rejected' && claim.status === 'pending') {
+        const student = this.students.find((item) => item.id === claim.student_id);
+        if (student) {
+          const refund = claim.cost_xp ?? this.rewards.find((reward) => reward.id === claim.reward_id)?.cost_xp ?? 0;
+          student.spendable_xp = (student.spendable_xp ?? student.xp ?? 0) + refund;
+          this.persist('students');
+        }
+      }
+    }
+
+    const claim = this.rewardRequests.find((item) => item.id === claimId);
+    if (claim) {
+      claim.status = status;
+      claim.processed_at = now;
+    }
+    if (isSupabaseConfigured) this.persistLocalOnly('rewardRequests');
+    else this.persist('rewardRequests');
+    if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('rewards_updated'));
+  }
+
+  async deleteClaim(claimId: string): Promise<void> {
+    if (isSupabaseConfigured && supabase) {
+      const { error } = await supabase.from('reward_requests').delete().eq('id', claimId);
+      if (error) throw new Error(error.message);
+    }
+    this.rewardRequests = this.rewardRequests.filter((item) => item.id !== claimId);
+    if (isSupabaseConfigured) this.persistLocalOnly('rewardRequests');
+    else this.persist('rewardRequests');
+  }
+
   async requestReward(studentId: string, rewardId: string, actionId?: string): Promise<RewardRequest> {
     const student = this.students.find((s) => s.id === studentId || s.user_id === studentId);
     const reward = this.rewards.find((r) => r.id === rewardId);
     if (!student || !reward) throw new Error('Geçersiz öğrenci veya ödül.');
 
-    // 🚀 MADDE 6: Ödül satın alma yalnızca spendable_xp'den düşmeli ve Negatif Bakiye Engellenmeli
     const currentSpendable = student.spendable_xp !== undefined ? student.spendable_xp : (student.xp || 0);
     if (currentSpendable < reward.cost_xp) {
       throw new Error(`Yetersiz harcanabilir XP. Bu ödül için ${reward.cost_xp} XP gerekiyor (Mevcut Harcanabilir: ${currentSpendable} XP).`);
     }
 
-    const effectiveActionId = actionId || `reward_req_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    const effectiveActionId = actionId || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `reward_req_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`);
     if (this.xpTransactions.some((tx) => tx.action_id === effectiveActionId)) {
       throw new Error('Bu ödül talebi daha önce işlenmiştir (idempotent duplicate).');
     }
 
-    // YALNIZCA spendable_xp düşülür. total_xp ASLA silinmez.
+    if (isSupabaseConfigured && supabase) {
+      if (!isValidUUID(student.id) || !isValidUUID(rewardId)) {
+        throw new Error('Ödül talebi için doğrulanmış öğrenci ve ödül kayıtları gereklidir.');
+      }
+      const { data, error } = await supabase.rpc('claim_reward_atomic', {
+        p_student_id: student.id,
+        p_reward_id: rewardId,
+        p_action_id: effectiveActionId,
+      });
+      if (error) throw new Error(error.message);
+
+      const result = Array.isArray(data) ? data[0] : data;
+      if (!result?.success) throw new Error(result?.error || 'Ödül talebi reddedildi.');
+
+      const now = new Date().toISOString();
+      const request: RewardRequest = {
+        id: result.request_id,
+        reward_id: rewardId,
+        student_id: student.id,
+        status: 'pending',
+        cost_xp: reward.cost_xp,
+        requested_at: now,
+        created_at: now,
+      };
+      student.spendable_xp = Number(result.remaining_spendable_xp);
+      if (student.total_xp === undefined) student.total_xp = student.xp || 0;
+      student.updated_at = now;
+      this.rewardRequests = [request, ...this.rewardRequests.filter((item) => item.id !== request.id)];
+      if (!result.duplicate && !this.xpTransactions.some((transaction) => transaction.action_id === effectiveActionId)) {
+        this.xpTransactions.unshift({
+          id: `xp_${effectiveActionId}`,
+          student_id: student.id,
+          amount: -reward.cost_xp,
+          reason: `Ödül Kullanımı: ${reward.title}`,
+          source_type: 'reward_redemption',
+          source_id: request.id,
+          action_id: effectiveActionId,
+          created_at: now,
+        });
+      }
+      this.persistLocalOnly('students');
+      this.persistLocalOnly('rewardRequests');
+      this.persistLocalOnly('xpTransactions');
+      if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('rewards_updated'));
+      return request;
+    }
+
     student.spendable_xp = Math.max(0, currentSpendable - reward.cost_xp);
     if (student.total_xp === undefined) student.total_xp = student.xp || 0;
     student.updated_at = new Date().toISOString();
-
     const now = new Date().toISOString();
-    const id = 'req_' + Math.random().toString(36).substring(2, 9);
-    const req: RewardRequest = {
-      id,
+    const request: RewardRequest = {
+      id: 'req_' + Math.random().toString(36).substring(2, 9),
       reward_id: rewardId,
       student_id: student.id,
       status: 'pending',
@@ -1181,75 +2034,30 @@ class DatabaseEngine {
       requested_at: now,
       created_at: now,
     };
-
-    this.rewardRequests.unshift(req);
-    this.persist('rewardRequests');
-    this.persist('students');
-
-    const tx: XpTransaction = {
+    this.rewardRequests.unshift(request);
+    this.xpTransactions.unshift({
       id: 'xp_' + Math.random().toString(36).substring(2, 9),
       student_id: student.id,
       amount: -reward.cost_xp,
       reason: `Ödül Kullanımı: ${reward.title}`,
       source_type: 'reward_redemption',
-      source_id: req.id,
+      source_id: request.id,
       action_id: effectiveActionId,
       created_at: now,
-    };
-    this.xpTransactions.unshift(tx);
-    this.persist('xpTransactions');
-
-    if (isSupabaseConfigured && supabase) {
-      try {
-        if (isValidUUID(student.id) && isValidUUID(rewardId)) {
-          const { error: rpcErr } = await supabase.rpc('claim_reward_atomic', {
-            p_student_id: student.id,
-            p_reward_id: rewardId,
-            p_action_id: effectiveActionId,
-          });
-          if (rpcErr) {
-            await supabase.from('students').update({
-              spendable_xp: student.spendable_xp,
-              updated_at: student.updated_at,
-            }).eq('id', student.id);
-            await supabase.from('reward_requests').insert([{
-              id: isValidUUID(id) ? id : undefined,
-              reward_id: rewardId,
-              student_id: student.id,
-              status: 'pending',
-              created_at: now,
-            }]);
-            await supabase.from('xp_transactions').insert([{
-              student_id: student.id,
-              amount: -reward.cost_xp,
-              reason: `Ödül Kullanımı: ${reward.title}`,
-              source_type: 'reward_redemption',
-              source_id: isValidUUID(id) ? id : null,
-              action_id: effectiveActionId,
-              created_at: now,
-            }]);
-          }
-        }
-      } catch (err) {}
-    }
-
-    this.createNotification({
-      user_id: DEMO_COACH_USER_ID,
-      title: 'Yeni Ödül Talebi 🎁',
-      message: `${student.name} "${reward.title}" ödülü için talepte bulundu (${reward.cost_xp} XP).`,
-      type: 'reward',
-      link: '/coach/rewards',
     });
+    this.persist('rewardRequests');
+    this.persist('students');
+    this.persist('xpTransactions');
 
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('rewards_updated'));
     }
 
-    return req;
+    return request;
   }
 
   // --- XP & LEVEL SYSTEM ---
-  async addXp(
+  private async addXp(
     studentId: string,
     amount: number,
     reason: string,
@@ -1258,6 +2066,7 @@ class DatabaseEngine {
     actionId?: string,
     isBonus?: boolean
   ): Promise<boolean> {
+    if (isSupabaseConfigured && supabase) return false;
     const student = this.students.find((s) => s.id === studentId || s.user_id === studentId);
     if (!student || amount <= 0) return false;
 
@@ -1323,24 +2132,72 @@ class DatabaseEngine {
   }
 
   // 🚀 MADDE 7: KOÇUN MANUEL XP YÖNETİMİ (Güvenlik Kontrollü)
-  async addManualXpByCoach(coachId: string, studentId: string, amount: number, reason: string): Promise<boolean> {
+  private async adjustManualXpAtomic(student: Student, delta: number, reason: string, actionId: string): Promise<boolean> {
+    if (!supabase || !isValidUUID(student.id)) {
+      throw new Error('Güvenli manuel XP işlemi için doğrulanmış öğrenci kaydı gereklidir.');
+    }
+    const { data, error } = await supabase.rpc('adjust_manual_xp_atomic', {
+      p_student_id: student.id,
+      p_delta: delta,
+      p_reason: reason,
+      p_action_id: actionId,
+    });
+    if (error) throw new Error(error.message);
+    const result = Array.isArray(data) ? data[0] : data;
+    if (!result?.success) throw new Error(result?.error || 'Manuel XP işlemi tamamlanamadı.');
+
+    const now = new Date().toISOString();
+    student.total_xp = Number(result.total_xp);
+    student.spendable_xp = Number(result.spendable_xp);
+    student.xp = student.total_xp;
+    student.level = Number(result.level);
+    student.updated_at = now;
+    if (!this.xpTransactions.some((transaction) => transaction.action_id === actionId)) {
+      this.xpTransactions.unshift({
+        id: `xp_${Math.random().toString(36).substring(2, 9)}`,
+        student_id: student.id,
+        amount: delta,
+        reason,
+        source_type: 'manual',
+        action_id: actionId,
+        created_at: now,
+      });
+    }
+    this.persistLocalOnly('students');
+    this.persistLocalOnly('xpTransactions');
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('students_updated'));
+      window.dispatchEvent(new CustomEvent('xp_updated'));
+    }
+    return true;
+  }
+
+  async addManualXpByCoach(coachId: string, studentId: string, amount: number, reason: string, actionId?: string): Promise<boolean> {
     if (amount <= 0) throw new Error("Miktar sıfırdan büyük olmalıdır.");
     const student = this.students.find((s) => s.id === studentId || s.user_id === studentId);
     if (!student) throw new Error("Öğrenci bulunamadı.");
 
-    // Yetki kontrolü (Coach RLS Güvenliği)
+    const effectiveActionId = actionId || `manual_add_${typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Date.now()}_${student.id}`;
+    if (isSupabaseConfigured && supabase) {
+      return this.adjustManualXpAtomic(student, amount, reason, effectiveActionId);
+    }
+
     const isAuthorized = student.coach_id === coachId || coachId === SYSTEM_FOUNDER_ID || coachId === DEMO_COACH_USER_ID;
     if (!isAuthorized) throw new Error("Bu öğrenciye işlem yapma yetkiniz yok. (Sadece kendi öğrencilerinize işlem yapabilirsiniz)");
 
-    return this.addXp(student.id, amount, reason, 'manual', undefined, `manual_add_${Date.now()}_${student.id}`);
+    return this.addXp(student.id, amount, reason, 'manual', undefined, effectiveActionId);
   }
 
-  async removeManualXpByCoach(coachId: string, studentId: string, amount: number, reason: string): Promise<boolean> {
+  async removeManualXpByCoach(coachId: string, studentId: string, amount: number, reason: string, actionId?: string): Promise<boolean> {
     if (amount <= 0) throw new Error("Silinecek miktar sıfırdan büyük olmalıdır.");
     const student = this.students.find((s) => s.id === studentId || s.user_id === studentId);
     if (!student) throw new Error("Öğrenci bulunamadı.");
 
-    // Yetki kontrolü
+    const effectiveActionId = actionId || `manual_remove_${typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Date.now()}_${student.id}`;
+    if (isSupabaseConfigured && supabase) {
+      return this.adjustManualXpAtomic(student, -amount, reason, effectiveActionId);
+    }
+
     const isAuthorized = student.coach_id === coachId || coachId === SYSTEM_FOUNDER_ID || coachId === DEMO_COACH_USER_ID;
     if (!isAuthorized) throw new Error("Bu öğrenciye işlem yapma yetkiniz yok.");
 
@@ -1360,7 +2217,7 @@ class DatabaseEngine {
       reason: reason,
       source_type: 'manual',
       source_id: undefined,
-      action_id: `manual_remove_${Date.now()}_${student.id}`,
+      action_id: effectiveActionId,
       created_at: new Date().toISOString(),
     };
     this.xpTransactions.unshift(tx);

@@ -23,6 +23,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const AUTH_USER_KEY = 'mahfaza_current_user_email';
 const LEGACY_AUTH_KEY = 'serkan_hoca_current_user_email';
+const AUTH_PROFILE_COLUMNS = 'id,user_id,email,name,role,avatar_url,phone,username,two_factor_enabled,created_at,updated_at';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<UserProfile | null>(null);
@@ -57,35 +58,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const { data: { session } } = await supabase.auth.getSession();
           if (session?.user?.email) {
             const authEmail = session.user.email.toLowerCase();
-            let profile = await db.getProfileByEmail(authEmail);
-            if (!profile && session.user.id) {
-              profile = await db.getProfile(session.user.id);
-            }
-            if (!profile) {
-              const isFounder = authEmail === 'serkankocak551@gmail.com' || authEmail === 'mahfaza.co@gmail.com';
-              const metaRole = session.user.user_metadata?.role || (isFounder ? 'head_coach' : 'student');
-              const metaName = session.user.user_metadata?.name || session.user.user_metadata?.full_name || (isFounder ? 'Serkan KOÇAK' : authEmail.split('@')[0]);
-              profile = {
-                id: session.user.id,
-                user_id: session.user.id,
-                email: authEmail,
-                name: metaName,
-                role: metaRole,
-                is_verified: Boolean(session.user.email_confirmed_at),
-                is_founder: isFounder,
-                status: 'active',
-                created_at: session.user.created_at || new Date().toISOString(),
-                updated_at: new Date().toISOString(),
-              };
-              await db.createProfile(profile);
-            }
+            const { data: authProfile, error: profileError } = await supabase
+              .from('profiles')
+              .select(AUTH_PROFILE_COLUMNS)
+              .eq('user_id', session.user.id)
+              .maybeSingle();
+            if (profileError) throw new Error(profileError.message);
+            const profile = authProfile as UserProfile | null;
             if (profile) {
-              profile.id = session.user.id;
-              profile.user_id = session.user.id;
+              await db.createProfile(profile);
               const isConfirmed = Boolean(session.user.email_confirmed_at);
-              if (isConfirmed && !profile.is_verified) {
-                profile.is_verified = true;
-                profile.email_confirmed_at = session.user.email_confirmed_at;
+              profile.is_verified = isConfirmed;
+              profile.email_confirmed_at = session.user.email_confirmed_at || null;
+              if (isConfirmed) {
                 await db.verifyUserEmail(authEmail);
               }
               setUser(profile);
@@ -150,17 +135,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
           if (session?.user?.email) {
             const freshEmail = session.user.email.toLowerCase();
-            let profile = await db.getProfileByEmail(freshEmail);
-            if (profile) {
-              if (session.user.email_confirmed_at) {
-                profile.is_verified = true;
-                profile.email_confirmed_at = session.user.email_confirmed_at;
-                await db.verifyUserEmail(freshEmail);
-              }
-              setUser(profile);
-              localStorage.setItem(AUTH_USER_KEY, profile.email);
-              await loadStudentProfile(profile);
+            const { data: authProfile, error: profileError } = await supabase
+              .from('profiles')
+              .select(AUTH_PROFILE_COLUMNS)
+              .eq('user_id', session.user.id)
+              .maybeSingle();
+            if (profileError || !authProfile) {
+              setUser(null);
+              setStudentData(null);
+              localStorage.removeItem(AUTH_USER_KEY);
+              return;
             }
+            const profile = authProfile as UserProfile;
+            await db.createProfile(profile);
+            profile.is_verified = Boolean(session.user.email_confirmed_at);
+            profile.email_confirmed_at = session.user.email_confirmed_at || null;
+            if (session.user.email_confirmed_at) {
+              await db.verifyUserEmail(freshEmail);
+            }
+            setUser(profile);
+            localStorage.setItem(AUTH_USER_KEY, profile.email);
+            await loadStudentProfile(profile);
           }
         } else if (event === 'SIGNED_OUT') {
           setUser(null);
@@ -247,17 +242,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const { data: { user: authUser } } = await supabase.auth.getUser();
         if (authUser?.email) {
           const authEmail = authUser.email.toLowerCase();
-          const profile = await db.getProfileByEmail(authEmail);
-          if (profile) {
-            if (authUser.email_confirmed_at) {
-              profile.is_verified = true;
-              profile.email_confirmed_at = authUser.email_confirmed_at;
-              await db.verifyUserEmail(authEmail);
-            }
-            setUser(profile);
-            await loadStudentProfile(profile);
-            return profile;
+          const { data: authProfile, error: profileError } = await supabase
+            .from('profiles')
+            .select(AUTH_PROFILE_COLUMNS)
+            .eq('user_id', authUser.id)
+            .maybeSingle();
+          if (profileError || !authProfile) {
+            setUser(null);
+            setStudentData(null);
+            localStorage.removeItem(AUTH_USER_KEY);
+            return null;
           }
+          const profile = authProfile as UserProfile;
+          await db.createProfile(profile);
+          profile.is_verified = Boolean(authUser.email_confirmed_at);
+          profile.email_confirmed_at = authUser.email_confirmed_at || null;
+          if (authUser.email_confirmed_at) await db.verifyUserEmail(authEmail);
+          setUser(profile);
+          await loadStudentProfile(profile);
+          return profile;
         } else {
           // No active Supabase Auth user
           setUser(null);

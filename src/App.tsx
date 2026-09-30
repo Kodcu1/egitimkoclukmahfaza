@@ -88,7 +88,8 @@ const ProtectedRoute: React.FC<{
     return <Navigate to={`/verify-email?email=${encodeURIComponent(user.email)}`} replace />;
   }
 
-  if (allowedRoles && role && !allowedRoles.includes(role)) {
+  if (allowedRoles && (!role || !allowedRoles.includes(role))) {
+    if (!role) return <Navigate to="/login" replace />;
     // Redirect to user's assigned dashboard safely
     const target = (role === 'admin' || role === 'org_admin')
       ? '/admin'

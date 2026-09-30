@@ -15,7 +15,6 @@ import { Button } from '../../components/common/Button';
 import { Badge } from '../../components/common/Badge';
 import { formatDateTurkish } from '../../utils/formatters';
 import { PhysicalRewardOrderModal } from '../../components/modals/PhysicalRewardOrderModal';
-import { SendPeerNudgeModal } from '../../components/modals/SendPeerNudgeModal';
 import { KVKKAydinlatmaModal } from '../../components/modals/KVKKAydinlatmaModal';
 import { useToast } from '../../context/ToastContext';
 import {
@@ -44,7 +43,6 @@ import {
   Lock,
   ExternalLink,
   ChevronRight,
-  Send,
   AlertCircle,
 } from 'lucide-react';
 
@@ -67,8 +65,6 @@ export const StudentRewardsPage: React.FC = () => {
   const [claimingId, setClaimingId] = useState<string | null>(null);
   const [selectedRewardForOrder, setSelectedRewardForOrder] = useState<Reward | null>(null);
   const [showOrderModal, setShowOrderModal] = useState(false);
-  const [showNudgeModal, setShowNudgeModal] = useState(false);
-  const [nudgeTargetStudent, setNudgeTargetStudent] = useState<{ id: string; name: string } | null>(null);
 
   // KVKK Settings State
   const [kvkkConsent, setKvkkConsent] = useState(false);
@@ -171,7 +167,8 @@ export const StudentRewardsPage: React.FC = () => {
 
     try {
       setClaimingId(reward.id);
-      await db.claimReward(student.id, reward.id, reward.cost_xp);
+      const actionId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `reward_${student.id}_${reward.id}_${Date.now()}`;
+      await db.requestReward(student.id, reward.id, actionId);
 
       toast.success(`"${reward.title}" talebiniz Serkan Koçak'a iletildi.`);
 
@@ -262,6 +259,13 @@ export const StudentRewardsPage: React.FC = () => {
   const totalXp = student ? (student.total_xp !== undefined ? student.total_xp : student.xp) : 0;
   const sapsTier: SAPSTier =
     totalXp >= 5000 ? 'Platinum' : totalXp >= 2500 ? 'Gold' : totalXp >= 1000 ? 'Silver' : 'Bronze';
+  const rewardTiers = [
+    { name: 'Bronze', targetXp: 2500 },
+    { name: 'Silver', targetXp: 7500 },
+    { name: 'Gold', targetXp: 15000 },
+    { name: 'Platinum', targetXp: 30000 },
+    { name: 'Efsane', targetXp: 75000 },
+  ];
 
   return (
     <div className="space-y-6 pb-12 animate-in fade-in slide-in-from-bottom-3 duration-500">
@@ -387,6 +391,33 @@ export const StudentRewardsPage: React.FC = () => {
       {/* TAB 1: STATUS */}
       {activeTab === 'status' && (
         <div className="space-y-6">
+          <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs">
+            <div className="flex items-center justify-between gap-3 mb-4">
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">Ödül XP Hedefleri</h3>
+                <p className="text-xs text-slate-500">Yaşam boyu toplam XP ile sıradaki hedefini takip et.</p>
+              </div>
+              <span className="text-sm font-black text-amber-700">{totalXp.toLocaleString('tr-TR')} XP</span>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+              {rewardTiers.map((tier) => {
+                const progress = Math.min(100, Math.round((totalXp / tier.targetXp) * 100));
+                return (
+                  <div key={tier.name} className="p-3 rounded-xl border border-amber-200 bg-amber-50/60">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs font-bold text-slate-900">{tier.name}</span>
+                      {totalXp >= tier.targetXp && <CheckCircle2 className="w-4 h-4 text-emerald-600" />}
+                    </div>
+                    <div className="mt-2 text-sm font-black text-amber-800">{tier.targetXp.toLocaleString('tr-TR')} XP</div>
+                    <div className="mt-2 h-1.5 rounded-full bg-amber-100 overflow-hidden">
+                      <div className="h-full bg-amber-600 transition-all" style={{ width: `${progress}%` }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
           {student && (
             <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs space-y-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
@@ -562,20 +593,6 @@ export const StudentRewardsPage: React.FC = () => {
                         <span className="text-[10px] text-slate-400">Toplam Kazanım</span>
                       </div>
 
-                      {!item.is_self && student && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            setNudgeTargetStudent({ id: item.student_id, name: item.display_name });
-                            setShowNudgeModal(true);
-                          }}
-                          className="text-xs flex items-center gap-1 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 border-indigo-200"
-                        >
-                          <Send className="w-3 h-3" />
-                          <span className="hidden sm:inline">Motive Et</span>
-                        </Button>
-                      )}
                     </div>
                   </div>
                 );
@@ -711,47 +728,7 @@ export const StudentRewardsPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-4">
-              <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                <Flame className="w-4 h-4 text-amber-500" />
-                <span>Çalışma Arkadaşlarına Destek Ol</span>
-              </h4>
-              <p className="text-xs text-slate-500">
-                Liderlik tablosundaki arkadaşlarına +10 XP ve moral notu göndererek onların sınav motivasyonunu artır.
-              </p>
-
-              <div className="space-y-2 max-h-[360px] overflow-y-auto pr-1">
-                {leaderboard
-                  .filter((l) => !l.is_self)
-                  .slice(0, 8)
-                  .map((peer) => (
-                    <div
-                      key={peer.student_id}
-                      className="p-3 rounded-xl border border-slate-100 hover:border-indigo-200 bg-slate-50/60 hover:bg-indigo-50/30 flex items-center justify-between transition-colors"
-                    >
-                      <div>
-                        <div className="text-xs font-bold text-slate-800">{peer.display_name}</div>
-                        <div className="text-[11px] text-slate-500">{peer.target_exam} • {peer.streak} Gün Seri</div>
-                      </div>
-
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          setNudgeTargetStudent({ id: peer.student_id, name: peer.display_name });
-                          setShowNudgeModal(true);
-                        }}
-                        className="text-xs text-purple-700 hover:bg-purple-100 border-purple-200 flex items-center gap-1"
-                      >
-                        <Send className="w-3 h-3" />
-                        <span>Motive Et (+10 XP)</span>
-                      </Button>
-                    </div>
-                  ))}
-              </div>
-            </div>
-
+          <div className="grid grid-cols-1 gap-6">
             <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-4">
               <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2">
                 <HeartHandshake className="w-4 h-4 text-purple-600" />
@@ -937,23 +914,6 @@ export const StudentRewardsPage: React.FC = () => {
           defaultName={student.name}
           defaultPhone={student.phone || student.phoneNumber}
           onOrderSuccess={() => {
-            loadData();
-          }}
-        />
-      )}
-
-      {nudgeTargetStudent && student && (
-        <SendPeerNudgeModal
-          isOpen={showNudgeModal}
-          onClose={() => {
-            setShowNudgeModal(false);
-            setNudgeTargetStudent(null);
-          }}
-          senderStudentId={student.id}
-          senderName={isAnonymous ? (nickname || `Öğrenci #${student.id.substring(0, 4)}`) : student.name}
-          targetStudentId={nudgeTargetStudent.id}
-          targetStudentName={nudgeTargetStudent.name}
-          onSuccess={() => {
             loadData();
           }}
         />

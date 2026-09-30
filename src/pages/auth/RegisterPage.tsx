@@ -4,7 +4,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { db } from '../../lib/db';
 import { SubscriptionPlan, PriceCalculationResult } from '../../types/saas.types';
 import { MahfazaLogo } from '../../components/common/MahfazaLogo';
-import { UserRole, TargetExamGroup } from '../../types';
+import { UserRole, TargetExamGroup, StudentField, StudentGrade } from '../../types';
 import {
   Lock,
   Mail,
@@ -113,11 +113,6 @@ export const RegisterPage: React.FC = () => {
 
   // Price Calculation Result
   const [priceCalc, setPriceCalc] = useState<PriceCalculationResult | null>(null);
-
-  // Payment mock state
-  const [cardNumber, setCardNumber] = useState('');
-  const [cardExpiry, setCardExpiry] = useState('');
-  const [cardCvc, setCardCvc] = useState('');
 
   // Execution States
   const [isLoading, setIsLoading] = useState(false);
@@ -379,6 +374,10 @@ export const RegisterPage: React.FC = () => {
   // Final Registration Submission (Step 4 -> Step 5)
   const handleFinalRegister = async () => {
     setErrorMessage(null);
+    if (!selectedPlan || selectedPlan.slug !== 'free') {
+      setErrorMessage('Ücretli paket aktivasyonu için henüz gerçek bir ödeme sağlayıcısı bağlı değil. Hesap veya abonelik oluşturulmadı.');
+      return;
+    }
     setIsLoading(true);
 
     try {
@@ -392,100 +391,16 @@ export const RegisterPage: React.FC = () => {
         matchCode: role === 'parent' ? parentMatchCode.trim() : undefined,
         phone: phone || undefined,
         phoneNumber: phone || undefined,
+        targetExam,
+        grade: grade as StudentGrade,
+        field: field as StudentField,
+        targetUniversity,
+        targetDepartment,
+        targetRank,
+        targetScore,
       });
 
       setCreatedProfileName(name.trim());
-
-      // 2. Handle Subscription & Entitlement (for Student / Coach / Org)
-      if (selectedPlan) {
-        const finalPrice = priceCalc ? priceCalc.final_price : selectedPlan.monthly_price;
-        const discId = priceCalc?.discount_id || undefined;
-
-        // Calculate Period End
-        const now = new Date();
-        const periodEnd = new Date();
-        if (billingCycle === 'yearly') {
-          periodEnd.setFullYear(now.getFullYear() + 1);
-        } else {
-          periodEnd.setMonth(now.getMonth() + 1);
-        }
-
-        // Save active subscription in Database
-        await db.createSubscription({
-          user_id: profile.user_id || profile.id,
-          plan_id: selectedPlan.id,
-          discount_id: discId,
-          status: 'active',
-          billing_cycle: billingCycle,
-          current_period_start: now.toISOString(),
-          current_period_end: periodEnd.toISOString(),
-          cancel_at_period_end: false,
-        });
-
-        // If coupon was applied, atomically record redemption count in DB
-        if (discId) {
-          await db.redeemDiscountAtomic(discId, profile.user_id || profile.id);
-        }
-
-        // Record payment audit log
-        await db.addPayment({
-          user_id: profile.user_id || profile.id,
-          plan_id: selectedPlan.id,
-          discount_id: discId,
-          amount: finalPrice,
-          currency: 'TRY',
-          status: 'succeeded',
-          provider: finalPrice === 0 ? 'free_tier_grant' : 'iyzico_card_mock',
-          user_name: name.trim(),
-          user_email: email.trim().toLowerCase(),
-        });
-
-        // 3. Grant Student Entitlements & Update Custom Onboarding Goals (for Students)
-        if (role === 'student') {
-          const allStudents = await db.getStudents();
-          const studentRecord = allStudents.find((s) => s.user_id === profile.user_id || s.email === email.trim().toLowerCase());
-
-          if (studentRecord) {
-            // Update student profile with onboarding inputs
-            await db.updateStudent(studentRecord.id, {
-              target_exam: targetExam,
-              grade,
-              field: field as any,
-              target_university: targetUniversity,
-              target_department: targetDepartment,
-              target_score: targetScore,
-              target_rank: targetRank,
-            });
-
-            // Update student goals
-            await db.updateStudentGoal(studentRecord.id, {
-              target_university: targetUniversity,
-              target_department: targetDepartment,
-              target_rank: targetRank,
-              target_score: targetScore,
-              notes: `${grade} - ${field} öğrencisi ${targetExam} 2027 hedefleri belirlendi.`,
-            });
-
-            // Grant private lessons entitlement
-            const privateLessons = selectedPlan.private_lessons_per_month || (selectedPlan.slug === 'premium' ? 2 : selectedPlan.slug === 'pro' ? 1 : 0);
-
-            await db.saveStudentEntitlement({
-              student_id: studentRecord.id,
-              student_name: name.trim(),
-              student_email: email.trim().toLowerCase(),
-              access_tier: selectedPlan.slug === 'premium' || selectedPlan.slug === 'pro' ? 'pro' : 'standard',
-              granted_by: appliedCoupon === 'SERKAN2027' ? 'Mahfaza.co Özel Başarı Bursu' : 'Onboarding Aboneliği',
-              reason: `${selectedPlan.name} Planı Aboneliği • ${billingCycle === 'yearly' ? 'Yıllık' : 'Aylık'} Üyelik`,
-              valid_until: periodEnd.toISOString(),
-              is_active: true,
-              included_private_lessons: privateLessons,
-              used_private_lessons: 0,
-              remaining_private_lessons: privateLessons,
-              billing_period: now.toISOString().slice(0, 7),
-            });
-          }
-        }
-      }
 
       // Clear Session Storage Draft
       sessionStorage.removeItem(ONBOARDING_STORAGE_KEY);
@@ -1716,68 +1631,15 @@ export const RegisterPage: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Mock Payment / Verification details */}
+                {/* Payment is unavailable until a real provider is connected. */}
                 <div className="p-6 rounded-3xl bg-white border border-slate-200 space-y-4 shadow-sm">
                   <h3 className="text-sm font-bold uppercase text-slate-800 flex items-center gap-2">
                     <CreditCard className="w-4 h-4 text-indigo-600" />
-                    <span>Ödeme Bilgileri (256-Bit SSL Güvenli)</span>
+                    <span>Paket Aktivasyonu</span>
                   </h3>
-
-                  {priceCalc && priceCalc.final_price === 0 ? (
-                    <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs font-medium space-y-1">
-                      <div className="font-bold text-sm flex items-center gap-1.5 text-emerald-800">
-                        <Sparkles className="w-4 h-4 text-emerald-600" />
-                        <span>Ücretsiz / Burslu Aktivasyon</span>
-                      </div>
-                      <p>Kupon veya seçilen plan gereği kart bilgisi girmeden anında üyeliğiniz aktive edilecektir.</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      <div className="space-y-1">
-                        <label className="text-xs font-semibold text-slate-600">Kart Üzerindeki İsim</label>
-                        <input
-                          type="text"
-                          value={name}
-                          readOnly
-                          className="w-full px-3.5 py-2 rounded-xl bg-slate-50 border border-slate-200 text-slate-700 text-xs font-medium"
-                        />
-                      </div>
-
-                      <div className="space-y-1">
-                        <label className="text-xs font-semibold text-slate-600">Kart Numarası (Test Modu)</label>
-                        <input
-                          type="text"
-                          value={cardNumber}
-                          onChange={(e) => setCardNumber(e.target.value)}
-                          placeholder="5528 •••• •••• 4242 (Mock Kart)"
-                          className="w-full px-3.5 py-2 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 text-xs font-mono font-medium focus:border-indigo-600 focus:bg-white focus:outline-none"
-                        />
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="space-y-1">
-                          <label className="text-xs font-semibold text-slate-600">Son Kullanma (AA/YY)</label>
-                          <input
-                            type="text"
-                            value={cardExpiry}
-                            onChange={(e) => setCardExpiry(e.target.value)}
-                            placeholder="12/28"
-                            className="w-full px-3.5 py-2 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 text-xs font-mono font-medium focus:border-indigo-600 focus:bg-white focus:outline-none"
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <label className="text-xs font-semibold text-slate-600">CVC / CVV</label>
-                          <input
-                            type="text"
-                            value={cardCvc}
-                            onChange={(e) => setCardCvc(e.target.value)}
-                            placeholder="321"
-                            className="w-full px-3.5 py-2 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 text-xs font-mono font-medium focus:border-indigo-600 focus:bg-white focus:outline-none"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  )}
+                  <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-950 text-xs font-medium">
+                    Gerçek ödeme sağlayıcısı bağlı değil. Kart bilgisi alınmıyor; ücretli paket veya abonelik etkinleştirilmiyor.
+                  </div>
                 </div>
               </div>
 
@@ -1857,7 +1719,7 @@ export const RegisterPage: React.FC = () => {
                       ) : (
                         <>
                           <ShieldCheck className="w-4 h-4 stroke-[3]" />
-                          <span>Aboneliği Başlat & Panele Gir</span>
+                          <span>Ücretsiz Hesabı Oluştur</span>
                         </>
                       )}
                     </button>
@@ -1897,7 +1759,7 @@ export const RegisterPage: React.FC = () => {
                 Mahfaza'ya Hoş Geldin, {createdProfileName || name}!
               </h1>
               <p className="text-slate-600 text-sm max-w-md mx-auto">
-                Hesabın ve <strong>{selectedPlan?.name}</strong> üyeliğin başarıyla aktive edildi. Sınav maratonundaki hedeflerini birlikte yönetmeye başlayalım.
+                Hesabın oluşturuldu. Ücretli paket aktivasyonu yapılmadı; mevcut ücretsiz erişiminle başlayabilirsin.
               </p>
             </div>
 

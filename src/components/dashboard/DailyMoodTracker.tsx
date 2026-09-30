@@ -44,15 +44,19 @@ export const DailyMoodTracker: React.FC<DailyMoodTrackerProps> = ({
 
   const loadData = async () => {
     if (!studentId) return;
-    const [today, history] = await Promise.all([
-      db.getTodayStudentMood(studentId),
-      db.getStudentMoods(studentId, 7),
-    ]);
-    setTodayMood(today);
-    setMoodHistory(history);
-    if (today) {
-      setSelectedMood(today.mood);
-      setNote(today.note || '');
+    try {
+      const [today, history] = await Promise.all([
+        db.getTodayStudentMood(studentId),
+        db.getStudentMoods(studentId, 7),
+      ]);
+      setTodayMood(today);
+      setMoodHistory(history);
+      if (today) {
+        setSelectedMood(today.mood);
+        setNote(today.note || '');
+      }
+    } catch (error) {
+      console.error('Duygu durumu yüklenemedi:', error);
     }
   };
 
@@ -71,8 +75,10 @@ export const DailyMoodTracker: React.FC<DailyMoodTrackerProps> = ({
       const saved = await db.saveStudentMood(studentId, moodKey, note);
       setTodayMood(saved);
       toast.success(`Günün ruh hali "${saved.mood_emoji} ${saved.mood_label}" olarak kaydedildi! Koçunuz görebilecek.`);
-    } catch {
-      toast.error('Duygu durumu kaydedilemedi.');
+    } catch (error) {
+      console.error('Duygu durumu kaydedilemedi:', error);
+      const message = error instanceof Error ? error.message : 'Bilinmeyen Supabase hatası.';
+      toast.error(`Duygu durumu kaydedilemedi: ${message}`);
     } finally {
       setIsSaving(false);
     }
@@ -85,8 +91,10 @@ export const DailyMoodTracker: React.FC<DailyMoodTrackerProps> = ({
       const saved = await db.saveStudentMood(studentId, selectedMood, note);
       setTodayMood(saved);
       toast.success('Koçunuza özel duygu durum notunuz güncellendi.');
-    } catch {
-      toast.error('Not kaydedilemedi.');
+    } catch (error) {
+      console.error('Duygu durumu notu kaydedilemedi:', error);
+      const message = error instanceof Error ? error.message : 'Bilinmeyen Supabase hatası.';
+      toast.error(`Not kaydedilemedi: ${message}`);
     } finally {
       setIsSaving(false);
     }
