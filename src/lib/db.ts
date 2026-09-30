@@ -1,4 +1,4 @@
-import {
+﻿import {
   UserProfile,
   CoachProfile,
   Student,
@@ -99,33 +99,33 @@ const STORAGE_PREFIX = 'mahfaza_co_db_prod_';
 export const INITIAL_COACH_PROFILE: CoachProfile = {
   id: 'coach-profile-serkan',
   user_id: SYSTEM_FOUNDER_ID,
-  name: 'Serkan KOÇAK',
-  title: 'Mahfaza.co Kurucu Eğitimcisi & YKS Derece Koçu',
+  name: 'Serkan KOÃ‡AK',
+  title: 'Mahfaza.co Kurucu EÄŸitimcisi & YKS Derece KoÃ§u',
   email: 'serkankocak551@gmail.com',
   phone: '0555 123 4567',
   avatar_url: undefined,
-  slogan: 'Planını Kur. Disiplinini Koru. Hedefine Ulaş.',
-  bio: '10 yılı aşkın profesyonel YKS hazırlık, analitik derece koçluğu ve motivasyon yönetimi tecrübesiyle yüzlerce öğrenciyi Türkiye\'nin en seçkin üniversite ve bölümlerine yerleştiren modern eğitim mentoru.',
-  vision: 'Her öğrencinin potansiyelini maksimum seviyeye çıkaran, veriye dayalı, disiplinli ve kişiselleştirilmiş 2027 koçluk ekosistemi inşa etmek.',
+  slogan: 'PlanÄ±nÄ± Kur. Disiplinini Koru. Hedefine UlaÅŸ.',
+  bio: '10 yÄ±lÄ± aÅŸkÄ±n profesyonel YKS hazÄ±rlÄ±k, analitik derece koÃ§luÄŸu ve motivasyon yÃ¶netimi tecrÃ¼besiyle yÃ¼zlerce Ã¶ÄŸrenciyi TÃ¼rkiye\'nin en seÃ§kin Ã¼niversite ve bÃ¶lÃ¼mlerine yerleÅŸtiren modern eÄŸitim mentoru.',
+  vision: 'Her Ã¶ÄŸrencinin potansiyelini maksimum seviyeye Ã§Ä±karan, veriye dayalÄ±, disiplinli ve kiÅŸiselleÅŸtirilmiÅŸ 2027 koÃ§luk ekosistemi inÅŸa etmek.',
   experience_years: 11,
-  working_hours: 'Hafta İçi & Cumartesi: 09:00 - 21:00 Aktif Takip',
-  special_message: 'Sevgili öğrencim; 2027 YKS maratonunda en önemli sermayen zekan değil, her gün masanın başına aynı kararlılıkla oturabilme disiplinindir. Zorlandığın anlar, gelişimin başladığı anlardır. Hedeflediğin amfiye adını yazdırmak için bugün attığın her adımın değerini bil. Yanındayım!',
+  working_hours: 'Hafta Ä°Ã§i & Cumartesi: 09:00 - 21:00 Aktif Takip',
+  special_message: 'Sevgili Ã¶ÄŸrencim; 2027 YKS maratonunda en Ã¶nemli sermayen zekan deÄŸil, her gÃ¼n masanÄ±n baÅŸÄ±na aynÄ± kararlÄ±lÄ±kla oturabilme disiplinindir. ZorlandÄ±ÄŸÄ±n anlar, geliÅŸimin baÅŸladÄ±ÄŸÄ± anlardÄ±r. HedeflediÄŸin amfiye adÄ±nÄ± yazdÄ±rmak iÃ§in bugÃ¼n attÄ±ÄŸÄ±n her adÄ±mÄ±n deÄŸerini bil. YanÄ±ndayÄ±m!',
   principles: [
     {
       title: '1. Bireysel Strateji ve Dinamik Planlama',
-      description: 'Her öğrencinin öğrenme hızı, güçlü ve eksik olduğu konular farklıdır. Haftalık deneme sonuçlarına göre güncellenen dinamik çalışma çizelgeleriyle zaman kaybı engellenir.',
+      description: 'Her Ã¶ÄŸrencinin Ã¶ÄŸrenme hÄ±zÄ±, gÃ¼Ã§lÃ¼ ve eksik olduÄŸu konular farklÄ±dÄ±r. HaftalÄ±k deneme sonuÃ§larÄ±na gÃ¶re gÃ¼ncellenen dinamik Ã§alÄ±ÅŸma Ã§izelgeleriyle zaman kaybÄ± engellenir.',
     },
     {
-      title: '2. Erken Uyarı ve Risk Analiz Sistemi',
-      description: 'Soru sayılarında düşüş veya hedef netlerden sapma görüldüğünde sistem anında alarm verir; koç müdahalesiyle öğrenci vakit kaybetmeden yeniden motive edilir.',
+      title: '2. Erken UyarÄ± ve Risk Analiz Sistemi',
+      description: 'Soru sayÄ±larÄ±nda dÃ¼ÅŸÃ¼ÅŸ veya hedef netlerden sapma gÃ¶rÃ¼ldÃ¼ÄŸÃ¼nde sistem anÄ±nda alarm verir; koÃ§ mÃ¼dahalesiyle Ã¶ÄŸrenci vakit kaybetmeden yeniden motive edilir.',
     },
     {
-      title: '3. Gamification ve Sürekli Motivasyon',
-      description: 'Çözülen her soru, bitirilen her deneme ve tamamlanan her Pomodoro seansı XP kazandırır. Öğrenci ödül mağazasından koçluk ödülleri kazanarak eğlenerek yarışır.',
+      title: '3. Gamification ve SÃ¼rekli Motivasyon',
+      description: 'Ã‡Ã¶zÃ¼len her soru, bitirilen her deneme ve tamamlanan her Pomodoro seansÄ± XP kazandÄ±rÄ±r. Ã–ÄŸrenci Ã¶dÃ¼l maÄŸazasÄ±ndan koÃ§luk Ã¶dÃ¼lleri kazanarak eÄŸlenerek yarÄ±ÅŸÄ±r.',
     },
     {
-      title: '4. Zihinsel Dayanıklılık ve Sınav Psikolojisi',
-      description: 'YKS yalnızca bilgi değil, stres yönetimi sınavıdır. Düzenli koçluk görüşmeleri ve analiz karneleriyle öğrencinin özgüveni daima zirvede tutulur.',
+      title: '4. Zihinsel DayanÄ±klÄ±lÄ±k ve SÄ±nav Psikolojisi',
+      description: 'YKS yalnÄ±zca bilgi deÄŸil, stres yÃ¶netimi sÄ±navÄ±dÄ±r. DÃ¼zenli koÃ§luk gÃ¶rÃ¼ÅŸmeleri ve analiz karneleriyle Ã¶ÄŸrencinin Ã¶zgÃ¼veni daima zirvede tutulur.',
     },
   ],
   updated_at: new Date().toISOString(),
@@ -349,13 +349,13 @@ class DatabaseEngine {
 
     let coach = this.profiles.find(p => p.id === coachUUID || p.email === 'koc@mahfaza.co');
     if (!coach) {
-      coach = { id: coachUUID, user_id: coachUUID, email: 'koc@mahfaza.co', name: 'Demo Koç', role: 'coach', is_verified: true, created_at: now, updated_at: now };
+      coach = { id: coachUUID, user_id: coachUUID, email: 'koc@mahfaza.co', name: 'Demo KoÃ§', role: 'coach', is_verified: true, created_at: now, updated_at: now };
       this.profiles.push(coach);
     }
 
     let student = this.profiles.find(p => p.id === studentUUID || p.email === 'ogrenci@mahfaza.co');
     if (!student) {
-      student = { id: studentUUID, user_id: studentUUID, email: 'ogrenci@mahfaza.co', name: 'Demo Öğrenci', role: 'student', is_verified: true, created_at: now, updated_at: now };
+      student = { id: studentUUID, user_id: studentUUID, email: 'ogrenci@mahfaza.co', name: 'Demo Ã–ÄŸrenci', role: 'student', is_verified: true, created_at: now, updated_at: now };
       this.profiles.push(student);
     }
 
@@ -367,13 +367,13 @@ class DatabaseEngine {
 
     let stuRecord = this.students.find(s => s.id === studentUUID || s.user_id === studentUUID);
     if (!stuRecord) {
-      stuRecord = { id: studentUUID, user_id: studentUUID, name: 'Demo Öğrenci', email: 'ogrenci@mahfaza.co', phone: '05550000001', phoneNumber: '05550000001', grade: '12. Sınıf', field: 'SAY', match_code: 'DEMO123', target_university: 'Boğaziçi Üniversitesi', target_department: 'Bilgisayar Mühendisliği', target_rank: 1000, target_score: 520, xp: 1500, level: 3, streak_days: 5, risk_score: 15, risk_level: 'LOW', risk_reasons: [], coach_id: coachUUID, parent_id: parentUUID, is_verified: true, created_at: now, updated_at: now };
+      stuRecord = { id: studentUUID, user_id: studentUUID, name: 'Demo Ã–ÄŸrenci', email: 'ogrenci@mahfaza.co', phone: '05550000001', phoneNumber: '05550000001', grade: '12. SÄ±nÄ±f', field: 'SAY', match_code: 'DEMO123', target_university: 'BoÄŸaziÃ§i Ãœniversitesi', target_department: 'Bilgisayar MÃ¼hendisliÄŸi', target_rank: 1000, target_score: 520, xp: 1500, level: 3, streak_days: 5, risk_score: 15, risk_level: 'LOW', risk_reasons: [], coach_id: coachUUID, parent_id: parentUUID, is_verified: true, created_at: now, updated_at: now };
       this.students.push(stuRecord);
     }
 
     let goal = this.goals.find(g => g.student_id === studentUUID);
     if (!goal) {
-      goal = { id: 'goal_demo_student', student_id: studentUUID, target_university: 'Boğaziçi Üniversitesi', target_department: 'Bilgisayar Mühendisliği', target_rank: 1000, target_score: 520, weekly_question_target: 1000, weekly_hour_target: 35, updated_at: now };
+      goal = { id: 'goal_demo_student', student_id: studentUUID, target_university: 'BoÄŸaziÃ§i Ãœniversitesi', target_department: 'Bilgisayar MÃ¼hendisliÄŸi', target_rank: 1000, target_score: 520, weekly_question_target: 1000, weekly_hour_target: 35, updated_at: now };
       this.goals.push(goal);
     }
   }
@@ -498,7 +498,7 @@ class DatabaseEngine {
           const existing = map.get(item.id)!;
           if (JSON.stringify(existing) !== JSON.stringify(item)) {
             if (key === 'xpApprovals' && ((existing as any).status === 'approved' || (existing as any).status === 'rejected') && (item as any).status === 'pending') return;
-            if (key === 'tasks' && (existing as any).status === 'Tamamlandı' && (item as any).status === 'Bekliyor') return;
+            if (key === 'tasks' && (existing as any).status === 'TamamlandÄ±' && (item as any).status === 'Bekliyor') return;
             if (key === 'rewardRequests' && ((existing as any).status === 'approved' || (existing as any).status === 'rejected') && (item as any).status === 'pending') return;
 
             Object.assign(existing, item);
@@ -578,14 +578,14 @@ class DatabaseEngine {
     if (isSupabaseConfigured && supabase) {
       const { data: { user }, error: authError } = await supabase.auth.getUser();
       if (authError || !user || profile.user_id !== user.id) {
-        throw new Error('Profil yalnızca doğrulanmış oturum sahibi için yüklenebilir.');
+        throw new Error('Profil yalnÄ±zca doÄŸrulanmÄ±ÅŸ oturum sahibi iÃ§in yÃ¼klenebilir.');
       }
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
         .eq('user_id', user.id)
         .maybeSingle();
-      if (error || !data) throw new Error(error?.message || 'Doğrulanmış profil bulunamadı.');
+      if (error || !data) throw new Error(error?.message || 'DoÄŸrulanmÄ±ÅŸ profil bulunamadÄ±.');
       return this.createProfile(data as UserProfile);
     }
     return this.createProfile(profile);
@@ -593,7 +593,7 @@ class DatabaseEngine {
 
   async updateProfile(userId: string, updates: Partial<UserProfile>): Promise<UserProfile> {
     const profile = this.profiles.find((item) => item.user_id === userId || item.id === userId);
-    if (!profile) throw new Error('Profil bulunamadı.');
+    if (!profile) throw new Error('Profil bulunamadÄ±.');
 
     const allowedFields: (keyof UserProfile)[] = [
       'name', 'phone', 'avatar_url', 'target_exam', 'grade', 'field',
@@ -607,7 +607,7 @@ class DatabaseEngine {
     if (isSupabaseConfigured && supabase) {
       const { data: { user }, error: authError } = await supabase.auth.getUser();
       if (authError || !user || user.id !== profile.user_id) {
-        throw new Error('Yalnızca kendi profilinizi güncelleyebilirsiniz.');
+        throw new Error('YalnÄ±zca kendi profilinizi gÃ¼ncelleyebilirsiniz.');
       }
       const { data, error } = await supabase
         .from('profiles')
@@ -616,7 +616,7 @@ class DatabaseEngine {
         .select('*')
         .maybeSingle();
       if (error) throw new Error(error.message);
-      if (!data) throw new Error('Profil güncellenemedi.');
+      if (!data) throw new Error('Profil gÃ¼ncellenemedi.');
       Object.assign(profile, data);
     } else {
       Object.assign(profile, safeUpdates, { updated_at: new Date().toISOString() });
@@ -650,7 +650,7 @@ class DatabaseEngine {
   ): Promise<PriceCalculationResult> {
     const plan = (await this.getSubscriptionPlans(false)).find((item) => item.id === planId);
     if (!plan) {
-      return { base_price: 0, discount_amount: 0, final_price: 0, error_message: 'Plan bulunamadı veya aktif değil.' };
+      return { base_price: 0, discount_amount: 0, final_price: 0, error_message: 'Plan bulunamadÄ± veya aktif deÄŸil.' };
     }
 
     const basePrice = billingCycle === 'yearly' ? plan.yearly_price : plan.monthly_price;
@@ -677,11 +677,11 @@ class DatabaseEngine {
           };
         }
         if (discountCode) {
-          return { base_price: basePrice, discount_amount: 0, final_price: basePrice, error_message: error?.message || 'İndirim kodu doğrulanamadı.' };
+          return { base_price: basePrice, discount_amount: 0, final_price: basePrice, error_message: error?.message || 'Ä°ndirim kodu doÄŸrulanamadÄ±.' };
         }
       } catch (error) {
         if (discountCode) {
-          return { base_price: basePrice, discount_amount: 0, final_price: basePrice, error_message: error instanceof Error ? error.message : 'İndirim kodu doğrulanamadı.' };
+          return { base_price: basePrice, discount_amount: 0, final_price: basePrice, error_message: error instanceof Error ? error.message : 'Ä°ndirim kodu doÄŸrulanamadÄ±.' };
         }
       }
     }
@@ -701,7 +701,7 @@ class DatabaseEngine {
       (item.max_redemptions == null || item.redemption_count < item.max_redemptions)
     );
     if (!discount) {
-      return { base_price: basePrice, discount_amount: 0, final_price: basePrice, error_message: 'İndirim kodu geçersiz veya kullanım limiti dolmuş.' };
+      return { base_price: basePrice, discount_amount: 0, final_price: basePrice, error_message: 'Ä°ndirim kodu geÃ§ersiz veya kullanÄ±m limiti dolmuÅŸ.' };
     }
 
     const discountAmount = discount.discount_type === 'percentage'
@@ -943,7 +943,7 @@ class DatabaseEngine {
       sms: 'Kurumsal',
       ai_monthly_limit: 'Free',
     };
-    const deny = (planName?: string, reason = 'Bu özellik için etkin bir paket yetkisi bulunamadı.'): FeatureAccessResult => ({
+    const deny = (planName?: string, reason = 'Bu Ã¶zellik iÃ§in etkin bir paket yetkisi bulunamadÄ±.'): FeatureAccessResult => ({
       hasAccess: false,
       featureKey,
       requiredPlan: requiredPlan[featureKey],
@@ -951,10 +951,10 @@ class DatabaseEngine {
       reason,
     });
 
-    if (!isSupabaseConfigured || !supabase) return deny(undefined, 'Abonelik kaynağı doğrulanamadı.');
+    if (!isSupabaseConfigured || !supabase) return deny(undefined, 'Abonelik kaynaÄŸÄ± doÄŸrulanamadÄ±.');
     try {
       const { data: { user }, error: authError } = await supabase.auth.getUser();
-      if (authError || !user || actorId !== user.id) return deny(undefined, 'Oturum sahibi doğrulanamadı.');
+      if (authError || !user || actorId !== user.id) return deny(undefined, 'Oturum sahibi doÄŸrulanamadÄ±.');
 
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
@@ -967,7 +967,7 @@ class DatabaseEngine {
       const { data: authoritativePlans, error: plansError } = await supabase
         .from('subscription_plans')
         .select('*');
-      if (plansError || !authoritativePlans?.length) return deny(undefined, 'Abonelik planı veritabanından doğrulanamadı.');
+      if (plansError || !authoritativePlans?.length) return deny(undefined, 'Abonelik planÄ± veritabanÄ±ndan doÄŸrulanamadÄ±.');
       const plans = authoritativePlans as SubscriptionPlan[];
       let plan: SubscriptionPlan | undefined;
       let entitlementPlan: SubscriptionPlan | undefined;
@@ -1018,7 +1018,7 @@ class DatabaseEngine {
           .select('id', { count: 'exact', head: true })
           .eq('user_id', user.id)
           .gte('created_at', monthStart);
-        if (usageError) return deny(currentPlan.name, 'AI kullanım kotası doğrulanamadı.');
+        if (usageError) return deny(currentPlan.name, 'AI kullanÄ±m kotasÄ± doÄŸrulanamadÄ±.');
         currentUsage = count || 0;
       }
 
@@ -1049,10 +1049,10 @@ class DatabaseEngine {
         currentUsage,
         remaining: featureKey.startsWith('ai_') ? Math.max(0, currentPlan.ai_monthly_limit - (currentUsage || 0)) : undefined,
       };
-      if (!hasAccess) result.reason = `${requiredPlan[featureKey]} veya üzeri etkin bir paket gereklidir.`;
+      if (!hasAccess) result.reason = `${requiredPlan[featureKey]} veya Ã¼zeri etkin bir paket gereklidir.`;
       return result;
     } catch {
-      return deny(undefined, 'Entitlement doğrulanamadı.');
+      return deny(undefined, 'Entitlement doÄŸrulanamadÄ±.');
     }
   }
 
@@ -1060,7 +1060,7 @@ class DatabaseEngine {
     const student = this.students.find((item) => item.id === studentId || item.user_id === studentId);
     const canonicalStudentId = student?.id || studentId;
     if (isSupabaseConfigured && supabase) {
-      if (!isValidUUID(canonicalStudentId)) throw new Error('Geçerli öğrenci kaydı bulunamadı.');
+      if (!isValidUUID(canonicalStudentId)) throw new Error('GeÃ§erli Ã¶ÄŸrenci kaydÄ± bulunamadÄ±.');
       const { data, error } = await supabase
         .from('student_moods')
         .select('*')
@@ -1111,17 +1111,17 @@ class DatabaseEngine {
 
   async saveStudentMood(studentId: string, mood: MoodKey, note = ''): Promise<StudentMood> {
     const student = this.students.find((item) => item.id === studentId || item.user_id === studentId);
-    if (!student) throw new Error('Öğrenci kaydı bulunamadı.');
+    if (!student) throw new Error('Ã–ÄŸrenci kaydÄ± bulunamadÄ±.');
     const moodLabels: Record<MoodKey, { label: string; emoji: string }> = {
-      joyful: { label: 'Neşe Dolu', emoji: '😊' },
-      hopeful: { label: 'Umutlu', emoji: '🌟' },
-      energetic: { label: 'Enerjik', emoji: '⚡' },
-      focused: { label: 'Odaklanmış', emoji: '🎯' },
-      calm: { label: 'Huzurlu', emoji: '🌿' },
-      undecided: { label: 'Kararsız', emoji: '⛅' },
-      tired: { label: 'Yorgun', emoji: '🔋' },
-      stressed: { label: 'Stresli', emoji: '🌧️' },
-      anxious: { label: 'Endişeli', emoji: '🌪️' },
+      joyful: { label: 'NeÅŸe Dolu', emoji: 'ğŸ˜Š' },
+      hopeful: { label: 'Umutlu', emoji: 'ğŸŒŸ' },
+      energetic: { label: 'Enerjik', emoji: 'âš¡' },
+      focused: { label: 'OdaklanmÄ±ÅŸ', emoji: 'ğŸ¯' },
+      calm: { label: 'Huzurlu', emoji: 'ğŸŒ¿' },
+      undecided: { label: 'KararsÄ±z', emoji: 'â›…' },
+      tired: { label: 'Yorgun', emoji: 'ğŸ”‹' },
+      stressed: { label: 'Stresli', emoji: 'ğŸŒ§ï¸' },
+      anxious: { label: 'EndiÅŸeli', emoji: 'ğŸŒªï¸' },
     };
     const date = new Date().toISOString().slice(0, 10);
     const createdAt = new Date().toISOString();
@@ -1137,7 +1137,7 @@ class DatabaseEngine {
 
     let saved: StudentMood;
     if (isSupabaseConfigured && supabase) {
-      if (!isValidUUID(student.id)) throw new Error('Duygu durumu için geçerli öğrenci ID bulunamadı.');
+      if (!isValidUUID(student.id)) throw new Error('Duygu durumu iÃ§in geÃ§erli Ã¶ÄŸrenci ID bulunamadÄ±.');
       const { data, error } = await supabase
         .from('student_moods')
         .upsert(moodValue, { onConflict: 'student_id,date' })
@@ -1164,13 +1164,13 @@ class DatabaseEngine {
     if (isSupabaseConfigured && supabase) {
       const { data: { user }, error } = await supabase.auth.getUser();
       if (error || !user?.email_confirmed_at || user.email?.trim().toLowerCase() !== normalizedEmail) {
-        throw new Error('E-posta doğrulaması Supabase Auth tarafından onaylanmadı.');
+        throw new Error('E-posta doÄŸrulamasÄ± Supabase Auth tarafÄ±ndan onaylanmadÄ±.');
       }
       verifiedAt = user.email_confirmed_at;
     }
 
     const profile = this.profiles.find((item) => item.email.trim().toLowerCase() === normalizedEmail);
-    if (!profile) throw new Error('E-posta ile eşleşen kullanıcı profili bulunamadı.');
+    if (!profile) throw new Error('E-posta ile eÅŸleÅŸen kullanÄ±cÄ± profili bulunamadÄ±.');
 
     profile.is_verified = true;
     profile.email_confirmed_at = verifiedAt;
@@ -1213,9 +1213,59 @@ class DatabaseEngine {
     });
     return this.sortByCreatedAtDesc(ownStudents);
   }
-
   async getStudentById(studentId: string): Promise<Student | null> {
-    return this.students.find((student) => student.id === studentId || student.user_id === studentId || student.email.trim().toLowerCase() === studentId.trim().toLowerCase()) || null;
+    const normalizedId = (studentId || '').trim();
+    if (!normalizedId) return null;
+
+    const local = this.students.find((student) =>
+      student.id === normalizedId ||
+      student.user_id === normalizedId ||
+      student.email.trim().toLowerCase() === normalizedId.toLowerCase()
+    ) || null;
+
+    if (isSupabaseConfigured && supabase && isValidUUID(normalizedId)) {
+      try {
+        const { data, error } = await supabase
+          .from('students')
+          .select('*')
+          .or(`id.eq.${normalizedId},user_id.eq.${normalizedId}`)
+          .maybeSingle();
+
+        if (!error && data) {
+          const student = data as Student;
+          this.students = this.deduplicateStudents([
+            ...this.students.filter(s => s.id !== student.id && s.user_id !== student.user_id),
+            student
+          ]);
+          return student;
+        }
+      } catch (error) {
+        console.warn('Supabase student lookup failed:', error);
+      }
+    }
+
+    if (isSupabaseConfigured && supabase && normalizedId.includes('@')) {
+      try {
+        const { data, error } = await supabase
+          .from('students')
+          .select('*')
+          .ilike('email', normalizedId)
+          .maybeSingle();
+
+        if (!error && data) {
+          const student = data as Student;
+          this.students = this.deduplicateStudents([
+            ...this.students.filter(s => s.id !== student.id && s.user_id !== student.user_id),
+            student
+          ]);
+          return student;
+        }
+      } catch (error) {
+        console.warn('Supabase student email lookup failed:', error);
+      }
+    }
+
+    return local;
   }
 
   auditStudent(studentId: string): Student | null {
@@ -1264,7 +1314,7 @@ class DatabaseEngine {
       phone: student.phone ?? student.phoneNumber,
       avatar_url: student.avatar_url,
       target_exam: student.target_exam ?? 'YKS',
-      grade: student.grade ?? '12. Sınıf',
+      grade: student.grade ?? '12. SÄ±nÄ±f',
       field: student.field ?? 'SAY',
       match_code: student.match_code ?? `STU-${Math.random().toString(36).substring(2, 8).toUpperCase()}`,
       target_university: student.target_university ?? 'Hedef Belirlenmedi',
@@ -1430,7 +1480,7 @@ class DatabaseEngine {
       .map((partnerId) => {
         const partnerProfile = profileMap.get(partnerId);
         const studentRecord = this.students.find((student) => student.user_id === partnerId || student.id === partnerId);
-        const partnerName = partnerProfile?.name || studentRecord?.name || 'Kullanıcı';
+        const partnerName = partnerProfile?.name || studentRecord?.name || 'KullanÄ±cÄ±';
         const partnerRole = partnerProfile?.role || (studentRecord ? 'student' : 'coach');
         const partnerMessages = this.getMessages(currentUserId, partnerId);
         const lastMessage = partnerMessages[partnerMessages.length - 1] || undefined;
@@ -1529,7 +1579,7 @@ class DatabaseEngine {
   private async submitXpApproval(approval: XpApprovalRequest): Promise<XpApprovalRequest> {
     if (isSupabaseConfigured && supabase) {
       if (!isValidUUID(approval.student_id) || !isValidUUID(approval.activity_id)) {
-        throw new Error('XP talebi için doğrulanmış etkinlik ve öğrenci kayıtları gereklidir.');
+        throw new Error('XP talebi iÃ§in doÄŸrulanmÄ±ÅŸ etkinlik ve Ã¶ÄŸrenci kayÄ±tlarÄ± gereklidir.');
       }
       const { data, error } = await supabase.rpc('submit_xp_approval_atomic', {
         p_student_id: approval.student_id,
@@ -1553,20 +1603,20 @@ class DatabaseEngine {
   }
 
   async processXpApproval(approvalId: string, status: ApprovalStatus, coachNotes?: string): Promise<XpApprovalRequest> {
-    if (status !== 'approved' && status !== 'rejected') throw new Error('Geçersiz XP onay durumu.');
+    if (status !== 'approved' && status !== 'rejected') throw new Error('GeÃ§ersiz XP onay durumu.');
     const index = this.xpApprovals.findIndex((approval) => approval.id === approvalId);
-    if (index < 0) throw new Error('XP onay talebi bulunamadı.');
+    if (index < 0) throw new Error('XP onay talebi bulunamadÄ±.');
 
     const existing = this.xpApprovals[index];
     if (existing.status !== 'pending') return existing;
 
     const student = this.students.find((item) => item.id === existing.student_id || item.user_id === existing.student_id);
-    if (!student) throw new Error('Onaya bağlı öğrenci bulunamadı.');
+    if (!student) throw new Error('Onaya baÄŸlÄ± Ã¶ÄŸrenci bulunamadÄ±.');
 
     const now = new Date().toISOString();
     const actionId = `approval_${existing.id}`;
     if (isSupabaseConfigured && supabase) {
-      if (!isValidUUID(student.id)) throw new Error('XP onayı için doğrulanmış öğrenci kaydı gereklidir.');
+      if (!isValidUUID(student.id)) throw new Error('XP onayÄ± iÃ§in doÄŸrulanmÄ±ÅŸ Ã¶ÄŸrenci kaydÄ± gereklidir.');
       const { data, error } = await supabase.rpc('process_xp_approval_atomic', {
         p_approval_id: existing.id,
         p_status: status,
@@ -1574,7 +1624,7 @@ class DatabaseEngine {
       });
       if (error) throw new Error(error.message);
       const result = Array.isArray(data) ? data[0] : data;
-      if (!result?.success) throw new Error(result?.error || 'XP onayı işlenemedi.');
+      if (!result?.success) throw new Error(result?.error || 'XP onayÄ± iÅŸlenemedi.');
 
       const updated: XpApprovalRequest = {
         ...existing,
@@ -1594,7 +1644,7 @@ class DatabaseEngine {
           id: `xp_${Math.random().toString(36).substring(2, 9)}`,
           student_id: student.id,
           amount: existing.calculated_xp,
-          reason: `Koç onayı: ${existing.title}`,
+          reason: `KoÃ§ onayÄ±: ${existing.title}`,
           source_type: existing.activity_type,
           source_id: existing.activity_id,
           action_id: actionId,
@@ -1630,7 +1680,7 @@ class DatabaseEngine {
         id: `xp_${Math.random().toString(36).substring(2, 9)}`,
         student_id: student.id,
         amount: existing.calculated_xp,
-        reason: `Koç onayı: ${existing.title}`,
+        reason: `KoÃ§ onayÄ±: ${existing.title}`,
         source_type: existing.activity_type,
         source_id: existing.activity_id,
         action_id: actionId,
@@ -1646,12 +1696,12 @@ class DatabaseEngine {
 
   async batchProcessXpApprovals(approvalIds: string[], status: ApprovalStatus): Promise<void> {
     for (const approvalId of approvalIds) {
-      await this.processXpApproval(approvalId, status, status === 'approved' ? 'Toplu onaylandı.' : 'Toplu reddedildi.');
+      await this.processXpApproval(approvalId, status, status === 'approved' ? 'Toplu onaylandÄ±.' : 'Toplu reddedildi.');
     }
   }
 
   async deleteXpApproval(approvalId: string): Promise<void> {
-    if (isSupabaseConfigured) throw new Error('Üretimde XP onay geçmişi silinemez.');
+    if (isSupabaseConfigured) throw new Error('Ãœretimde XP onay geÃ§miÅŸi silinemez.');
     this.xpApprovals = this.xpApprovals.filter((approval) => approval.id !== approvalId);
     this.persistLocalOnly('xpApprovals');
   }
@@ -1667,7 +1717,7 @@ class DatabaseEngine {
     if (isSupabaseConfigured && supabase) {
       const studentRecord = this.students.find((s) => s.id === newLog.student_id || s.user_id === newLog.student_id);
       if (!studentRecord || !isValidUUID(id) || !isValidUUID(studentRecord.id)) {
-        throw new Error('XP onayı için doğrulanmış öğrenci ve çalışma kaydı gereklidir.');
+        throw new Error('XP onayÄ± iÃ§in doÄŸrulanmÄ±ÅŸ Ã¶ÄŸrenci ve Ã§alÄ±ÅŸma kaydÄ± gereklidir.');
       }
       const { error } = await supabase.from('study_logs').insert([{
         id,
@@ -1696,16 +1746,16 @@ class DatabaseEngine {
     const calculatedXp = calculateXpForStudyLog(newLog.question_count || 0);
     const student = this.students.find((s) => s.id === newLog.student_id || s.user_id === newLog.student_id);
 
-    // 🚀 MADDE 8: Otomatik XP Verme İptal Edildi! Sadece "Pending" Onay İsteği Gönderilir.
+    // ğŸš€ MADDE 8: Otomatik XP Verme Ä°ptal Edildi! Sadece "Pending" Onay Ä°steÄŸi GÃ¶nderilir.
     const approvalReq: XpApprovalRequest = {
       id: 'xp_app_' + Math.random().toString(36).substring(2, 9),
       student_id: student?.id || newLog.student_id,
-      student_name: student?.name || 'Öğrenci',
+      student_name: student?.name || 'Ã–ÄŸrenci',
       coach_id: student?.coach_id || DEMO_COACH_ID,
       activity_type: 'study_log',
       activity_id: id,
       title: `${newLog.subject_name} - ${newLog.topic_name}`,
-      details: `${newLog.question_count} Soru • ${newLog.duration_minutes} Dk • ${newLog.net_count ? `${newLog.net_count} Net` : ''}`,
+      details: `${newLog.question_count} Soru â€¢ ${newLog.duration_minutes} Dk â€¢ ${newLog.net_count ? `${newLog.net_count} Net` : ''}`,
       question_count: newLog.question_count,
       duration_minutes: newLog.duration_minutes,
       net_count: newLog.net_count,
@@ -1721,8 +1771,8 @@ class DatabaseEngine {
     if (student) {
       this.createNotification({
         user_id: student.user_id,
-        title: 'Çalışma Onaya Gönderildi ⏳',
-        message: `${newLog.question_count} soruluk çalışmanız kaydedildi ve +${calculatedXp} XP için koç onayına sunuldu.`,
+        title: 'Ã‡alÄ±ÅŸma Onaya GÃ¶nderildi â³',
+        message: `${newLog.question_count} soruluk Ã§alÄ±ÅŸmanÄ±z kaydedildi ve +${calculatedXp} XP iÃ§in koÃ§ onayÄ±na sunuldu.`,
         type: 'general',
         link: '/student/study-logs',
       });
@@ -1743,7 +1793,7 @@ class DatabaseEngine {
     if (isSupabaseConfigured && supabase) {
       const studentRecord = this.students.find((s) => s.id === newExam.student_id || s.user_id === newExam.student_id);
       if (!studentRecord || !isValidUUID(id) || !isValidUUID(studentRecord.id)) {
-        throw new Error('XP onayı için doğrulanmış öğrenci ve deneme kaydı gereklidir.');
+        throw new Error('XP onayÄ± iÃ§in doÄŸrulanmÄ±ÅŸ Ã¶ÄŸrenci ve deneme kaydÄ± gereklidir.');
       }
       const { error } = await supabase.from('exam_results').insert([{
         id,
@@ -1769,16 +1819,16 @@ class DatabaseEngine {
     const calculatedXp = calculateXpForExam();
     const student = this.students.find((s) => s.id === newExam.student_id || s.user_id === newExam.student_id);
 
-    // 🚀 MADDE 8: Otomatik XP Verme İptal Edildi! Sadece "Pending" Onay İsteği Gönderilir.
+    // ğŸš€ MADDE 8: Otomatik XP Verme Ä°ptal Edildi! Sadece "Pending" Onay Ä°steÄŸi GÃ¶nderilir.
     const approvalReq: XpApprovalRequest = {
       id: 'xp_app_' + Math.random().toString(36).substring(2, 9),
       student_id: student?.id || newExam.student_id,
-      student_name: student?.name || 'Öğrenci',
+      student_name: student?.name || 'Ã–ÄŸrenci',
       coach_id: student?.coach_id || DEMO_COACH_ID,
       activity_type: 'exam',
       activity_id: id,
       title: `${newExam.exam_name} (${newExam.exam_type})`,
-      details: `Deneme Sonucu • ${newExam.total_net.toFixed(2)} Net ${newExam.score ? `• ${newExam.score} Puan` : ''}`,
+      details: `Deneme Sonucu â€¢ ${newExam.total_net.toFixed(2)} Net ${newExam.score ? `â€¢ ${newExam.score} Puan` : ''}`,
       net_count: newExam.total_net,
       calculated_xp: calculatedXp,
       status: 'pending',
@@ -1792,8 +1842,8 @@ class DatabaseEngine {
     if (student) {
       this.createNotification({
         user_id: student.user_id,
-        title: 'Deneme Onaya Gönderildi ⏳',
-        message: `${newExam.exam_name} denemeniz kaydedildi ve +${calculatedXp} XP için koç onayına sunuldu.`,
+        title: 'Deneme Onaya GÃ¶nderildi â³',
+        message: `${newExam.exam_name} denemeniz kaydedildi ve +${calculatedXp} XP iÃ§in koÃ§ onayÄ±na sunuldu.`,
         type: 'exam',
         link: '/student/exams',
       });
@@ -1802,7 +1852,7 @@ class DatabaseEngine {
     return newExam;
   }
 
-  // --- REWARDS & PURCHASING (Negatif Bakiye ve Total XP Güvenliği) ---
+  // --- REWARDS & PURCHASING (Negatif Bakiye ve Total XP GÃ¼venliÄŸi) ---
   async getRewards(): Promise<Reward[]> {
     if (isSupabaseConfigured && supabase) {
       try {
@@ -1901,7 +1951,7 @@ class DatabaseEngine {
         .eq('id', claimId)
         .maybeSingle();
       if (readError) throw new Error(readError.message);
-      if (!claim) throw new Error('Ödül talebi bulunamadı.');
+      if (!claim) throw new Error('Ã–dÃ¼l talebi bulunamadÄ±.');
 
       if (status === 'rejected') {
         const { data, error } = await supabase.rpc('refund_reward_atomic', {
@@ -1910,7 +1960,7 @@ class DatabaseEngine {
         });
         if (error) throw new Error(error.message);
         const result = Array.isArray(data) ? data[0] : data;
-        if (!result?.success) throw new Error(result?.error || 'XP iadesi yapılamadı.');
+        if (!result?.success) throw new Error(result?.error || 'XP iadesi yapÄ±lamadÄ±.');
 
         const student = this.students.find((item) => item.id === claim.student_id);
         if (student && !result.duplicate) {
@@ -1928,7 +1978,7 @@ class DatabaseEngine {
       }
     } else {
       const claim = this.rewardRequests.find((item) => item.id === claimId);
-      if (!claim) throw new Error('Ödül talebi bulunamadı.');
+      if (!claim) throw new Error('Ã–dÃ¼l talebi bulunamadÄ±.');
       if (status === 'rejected' && claim.status === 'pending') {
         const student = this.students.find((item) => item.id === claim.student_id);
         if (student) {
@@ -1962,21 +2012,21 @@ class DatabaseEngine {
   async requestReward(studentId: string, rewardId: string, actionId?: string): Promise<RewardRequest> {
     const student = this.students.find((s) => s.id === studentId || s.user_id === studentId);
     const reward = this.rewards.find((r) => r.id === rewardId);
-    if (!student || !reward) throw new Error('Geçersiz öğrenci veya ödül.');
+    if (!student || !reward) throw new Error('GeÃ§ersiz Ã¶ÄŸrenci veya Ã¶dÃ¼l.');
 
     const currentSpendable = student.spendable_xp !== undefined ? student.spendable_xp : (student.xp || 0);
     if (currentSpendable < reward.cost_xp) {
-      throw new Error(`Yetersiz harcanabilir XP. Bu ödül için ${reward.cost_xp} XP gerekiyor (Mevcut Harcanabilir: ${currentSpendable} XP).`);
+      throw new Error(`Yetersiz harcanabilir XP. Bu Ã¶dÃ¼l iÃ§in ${reward.cost_xp} XP gerekiyor (Mevcut Harcanabilir: ${currentSpendable} XP).`);
     }
 
     const effectiveActionId = actionId || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `reward_req_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`);
     if (this.xpTransactions.some((tx) => tx.action_id === effectiveActionId)) {
-      throw new Error('Bu ödül talebi daha önce işlenmiştir (idempotent duplicate).');
+      throw new Error('Bu Ã¶dÃ¼l talebi daha Ã¶nce iÅŸlenmiÅŸtir (idempotent duplicate).');
     }
 
     if (isSupabaseConfigured && supabase) {
       if (!isValidUUID(student.id) || !isValidUUID(rewardId)) {
-        throw new Error('Ödül talebi için doğrulanmış öğrenci ve ödül kayıtları gereklidir.');
+        throw new Error('Ã–dÃ¼l talebi iÃ§in doÄŸrulanmÄ±ÅŸ Ã¶ÄŸrenci ve Ã¶dÃ¼l kayÄ±tlarÄ± gereklidir.');
       }
       const { data, error } = await supabase.rpc('claim_reward_atomic', {
         p_student_id: student.id,
@@ -1986,7 +2036,7 @@ class DatabaseEngine {
       if (error) throw new Error(error.message);
 
       const result = Array.isArray(data) ? data[0] : data;
-      if (!result?.success) throw new Error(result?.error || 'Ödül talebi reddedildi.');
+      if (!result?.success) throw new Error(result?.error || 'Ã–dÃ¼l talebi reddedildi.');
 
       const now = new Date().toISOString();
       const request: RewardRequest = {
@@ -2007,7 +2057,7 @@ class DatabaseEngine {
           id: `xp_${effectiveActionId}`,
           student_id: student.id,
           amount: -reward.cost_xp,
-          reason: `Ödül Kullanımı: ${reward.title}`,
+          reason: `Ã–dÃ¼l KullanÄ±mÄ±: ${reward.title}`,
           source_type: 'reward_redemption',
           source_id: request.id,
           action_id: effectiveActionId,
@@ -2039,7 +2089,7 @@ class DatabaseEngine {
       id: 'xp_' + Math.random().toString(36).substring(2, 9),
       student_id: student.id,
       amount: -reward.cost_xp,
-      reason: `Ödül Kullanımı: ${reward.title}`,
+      reason: `Ã–dÃ¼l KullanÄ±mÄ±: ${reward.title}`,
       source_type: 'reward_redemption',
       source_id: request.id,
       action_id: effectiveActionId,
@@ -2131,10 +2181,10 @@ class DatabaseEngine {
     return true;
   }
 
-  // 🚀 MADDE 7: KOÇUN MANUEL XP YÖNETİMİ (Güvenlik Kontrollü)
+  // ğŸš€ MADDE 7: KOÃ‡UN MANUEL XP YÃ–NETÄ°MÄ° (GÃ¼venlik KontrollÃ¼)
   private async adjustManualXpAtomic(student: Student, delta: number, reason: string, actionId: string): Promise<boolean> {
     if (!supabase || !isValidUUID(student.id)) {
-      throw new Error('Güvenli manuel XP işlemi için doğrulanmış öğrenci kaydı gereklidir.');
+      throw new Error('GÃ¼venli manuel XP iÅŸlemi iÃ§in doÄŸrulanmÄ±ÅŸ Ã¶ÄŸrenci kaydÄ± gereklidir.');
     }
     const { data, error } = await supabase.rpc('adjust_manual_xp_atomic', {
       p_student_id: student.id,
@@ -2144,7 +2194,7 @@ class DatabaseEngine {
     });
     if (error) throw new Error(error.message);
     const result = Array.isArray(data) ? data[0] : data;
-    if (!result?.success) throw new Error(result?.error || 'Manuel XP işlemi tamamlanamadı.');
+    if (!result?.success) throw new Error(result?.error || 'Manuel XP iÅŸlemi tamamlanamadÄ±.');
 
     const now = new Date().toISOString();
     student.total_xp = Number(result.total_xp);
@@ -2173,9 +2223,9 @@ class DatabaseEngine {
   }
 
   async addManualXpByCoach(coachId: string, studentId: string, amount: number, reason: string, actionId?: string): Promise<boolean> {
-    if (amount <= 0) throw new Error("Miktar sıfırdan büyük olmalıdır.");
+    if (amount <= 0) throw new Error("Miktar sÄ±fÄ±rdan bÃ¼yÃ¼k olmalÄ±dÄ±r.");
     const student = this.students.find((s) => s.id === studentId || s.user_id === studentId);
-    if (!student) throw new Error("Öğrenci bulunamadı.");
+    if (!student) throw new Error("Ã–ÄŸrenci bulunamadÄ±.");
 
     const effectiveActionId = actionId || `manual_add_${typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Date.now()}_${student.id}`;
     if (isSupabaseConfigured && supabase) {
@@ -2183,15 +2233,15 @@ class DatabaseEngine {
     }
 
     const isAuthorized = student.coach_id === coachId || coachId === SYSTEM_FOUNDER_ID || coachId === DEMO_COACH_USER_ID;
-    if (!isAuthorized) throw new Error("Bu öğrenciye işlem yapma yetkiniz yok. (Sadece kendi öğrencilerinize işlem yapabilirsiniz)");
+    if (!isAuthorized) throw new Error("Bu Ã¶ÄŸrenciye iÅŸlem yapma yetkiniz yok. (Sadece kendi Ã¶ÄŸrencilerinize iÅŸlem yapabilirsiniz)");
 
     return this.addXp(student.id, amount, reason, 'manual', undefined, effectiveActionId);
   }
 
   async removeManualXpByCoach(coachId: string, studentId: string, amount: number, reason: string, actionId?: string): Promise<boolean> {
-    if (amount <= 0) throw new Error("Silinecek miktar sıfırdan büyük olmalıdır.");
+    if (amount <= 0) throw new Error("Silinecek miktar sÄ±fÄ±rdan bÃ¼yÃ¼k olmalÄ±dÄ±r.");
     const student = this.students.find((s) => s.id === studentId || s.user_id === studentId);
-    if (!student) throw new Error("Öğrenci bulunamadı.");
+    if (!student) throw new Error("Ã–ÄŸrenci bulunamadÄ±.");
 
     const effectiveActionId = actionId || `manual_remove_${typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Date.now()}_${student.id}`;
     if (isSupabaseConfigured && supabase) {
@@ -2199,11 +2249,11 @@ class DatabaseEngine {
     }
 
     const isAuthorized = student.coach_id === coachId || coachId === SYSTEM_FOUNDER_ID || coachId === DEMO_COACH_USER_ID;
-    if (!isAuthorized) throw new Error("Bu öğrenciye işlem yapma yetkiniz yok.");
+    if (!isAuthorized) throw new Error("Bu Ã¶ÄŸrenciye iÅŸlem yapma yetkiniz yok.");
 
     const currentSpendable = student.spendable_xp !== undefined ? student.spendable_xp : (student.xp || 0);
     if (currentSpendable < amount) {
-      throw new Error(`Öğrencinin bakiyesinde silmek istediğiniz kadar harcanabilir XP bulunmuyor. (Mevcut Bakiye: ${currentSpendable} XP)`);
+      throw new Error(`Ã–ÄŸrencinin bakiyesinde silmek istediÄŸiniz kadar harcanabilir XP bulunmuyor. (Mevcut Bakiye: ${currentSpendable} XP)`);
     }
 
     student.spendable_xp = currentSpendable - amount;
